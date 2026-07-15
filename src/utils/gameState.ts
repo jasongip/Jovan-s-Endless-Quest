@@ -20,7 +20,8 @@ export const INITIAL_STATE: GameState = {
   maxFloorReached: 1,
   limitBreakBar: 0,
   equippedPetId: null,
-  capturedPetIds: []
+  capturedPetIds: [],
+  selectedJobId: 'warrior'
 };
 
 /**
@@ -40,7 +41,8 @@ export function loadGameState(): GameState {
         maxFloorReached: parsed.maxFloorReached !== undefined ? parsed.maxFloorReached : Math.max(parsed.currentFloor || 1, 1),
         limitBreakBar: parsed.limitBreakBar !== undefined ? parsed.limitBreakBar : 0,
         equippedPetId: parsed.equippedPetId !== undefined ? parsed.equippedPetId : null,
-        capturedPetIds: parsed.capturedPetIds !== undefined ? parsed.capturedPetIds : []
+        capturedPetIds: parsed.capturedPetIds !== undefined ? parsed.capturedPetIds : [],
+        selectedJobId: parsed.selectedJobId !== undefined ? parsed.selectedJobId : 'warrior'
       };
     }
   } catch (err) {

@@ -30,7 +30,9 @@ import {
   Home,
   ArrowLeft,
   Volume2,
-  VolumeX
+  VolumeX,
+  X,
+  Lock
 } from 'lucide-react';
 
 import { GameState, QuizQuestion, LeaderboardEntry } from './types';
@@ -39,8 +41,10 @@ import { generateQuestion, generateBossCombo } from './utils/questions';
 import { GameBridge } from './game/GameBridge';
 import { getLeaderboard } from './firebase-config';
 import PhaserContainer from './components/PhaserContainer';
+import HeroPixelPreview from './components/HeroPixelPreview';
 import RetroSFX from './utils/sfx';
 import { PETS_DATABASE, getPetById, PetData } from './utils/petsDb';
+import { JOBS, getJobById, Job } from './data/jobs';
 
 interface ParsedQuestion {
   header: string;
@@ -131,6 +135,14 @@ export default function App() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showMerchantShop, setShowMerchantShop] = useState(false);
   const [tempHeroName, setTempHeroName] = useState(gameState.heroName);
+
+  // Job system states
+  const [warriorShield, setWarriorShield] = useState<boolean>(false);
+  const [hasMageTeleportUsed, setHasMageTeleportUsed] = useState<boolean>(false);
+  const [hasArcherAutoSolveUsed, setHasArcherAutoSolveUsed] = useState<boolean>(false);
+  const [warlockCombo, setWarlockCombo] = useState<number>(0);
+  const [samuraiExcludedOption, setSamuraiExcludedOption] = useState<string | null>(null);
+  const [showJobSelectorModal, setShowJobSelectorModal] = useState<boolean>(false);
   
   // Leaderboard data
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -208,6 +220,8 @@ export default function App() {
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
   const [devPassword, setDevPassword] = useState<string>("");
   const [devError, setDevError] = useState<string>("");
+  const [devCustomGold, setDevCustomGold] = useState<string>("100");
+  const [devCustomXP, setDevCustomXP] = useState<string>("150");
   const [devOverrides, setDevOverrides] = useState({
     petMode: 'default',
     eliteMode: 'default',
@@ -274,6 +288,23 @@ export default function App() {
     }
   };
 
+  // Samurai (武士) "心眼" ability: when HP is 1, automatically exclude one wrong answer (4 choices to 3 choices)
+  useEffect(() => {
+    if (activeQuiz && gameState.selectedJobId === 'samurai' && gameState.hp === 1 && activeQuiz.options) {
+      const wrongOptions = (activeQuiz.options || []).filter(opt => opt !== activeQuiz.correctAnswer);
+      if (wrongOptions.length > 0) {
+        const excluded = wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
+        setSamuraiExcludedOption(excluded);
+        // Log it!
+        pushLog(`👤 【心眼】武士心眼已開（HP 1點）！看破迷惘，為你排除一個錯誤解答：【${excluded}】！🔍`);
+      } else {
+        setSamuraiExcludedOption(null);
+      }
+    } else {
+      setSamuraiExcludedOption(null);
+    }
+  }, [activeQuiz, gameState.selectedJobId, gameState.hp]);
+
   // Timer countdown effect for Pet Capture Challenge
   useEffect(() => {
     if (!isPetChallengeActive || !activePet || isFeedbackShowing) return;
@@ -318,13 +349,23 @@ export default function App() {
     setTimeout(() => setShowSlashEffect(null), 1500);
 
     if (!activeQuiz) {
+      const isSage = gameState.selectedJobId === 'sage';
       const isBossFloor = gameState.currentFloor % 5 === 0;
       if (isBossFloor) {
-        pendingBossLimitBreakDamageRef.current += 2;
-        pushLog(`💥 Jovan 釋放了【極限超必殺技】！強大能量直接震懾了高塔守護者！Boss 的初始生命值將減少 2 點！💥`);
+        const preDmg = isSage ? 4 : 2;
+        pendingBossLimitBreakDamageRef.current += preDmg;
+        if (isSage) {
+          pushLog(`⚡🔮 【雷霆萬鈞】賢者引導九天神雷，超前震懾高塔守護者！Boss 的初始生命值將減少 4 點！💥`);
+        } else {
+          pushLog(`💥 Jovan 釋放了【極限超必殺技】！強大能量直接震懾了高塔守護者！Boss 的初始生命值將減少 2 點！💥`);
+        }
         GameBridge.wipeAllMonsters();
       } else {
-        pushLog(`💥 Jovan 釋放了【極限超必殺技】！全螢幕小怪直接秒殺！💥`);
+        if (isSage) {
+          pushLog(`⚡🔮 【雷霆萬鈞】賢者召喚滅世狂雷，全螢幕小怪灰飛煙滅！💥`);
+        } else {
+          pushLog(`💥 Jovan 釋放了【極限超必殺技】！全螢幕小怪直接秒殺！💥`);
+        }
         GameBridge.wipeAllMonsters();
       }
       fetchLeaderboard();
@@ -332,9 +373,15 @@ export default function App() {
     }
 
     if (bossCombo) {
-      const nextBossHp = Math.max(0, bossHp - 2);
+      const isSage = gameState.selectedJobId === 'sage';
+      const dmg = isSage ? 4 : 2;
+      const nextBossHp = Math.max(0, bossHp - dmg);
       setBossHp(nextBossHp);
-      pushLog(`💥 Jovan 釋放了【極限超必殺技】！對巨型 Boss 造成雙倍致命傷害！Boss HP -2！💥`);
+      if (isSage) {
+        pushLog(`⚡🔮 【雷霆萬鈞】賢者釋放雷霆奧義！對巨型 Boss 造成 4 點狂暴雷擊傷害！💥`);
+      } else {
+        pushLog(`💥 Jovan 釋放了【極限超必殺技】！對巨型 Boss 造成雙倍致命傷害！Boss HP -2！💥`);
+      }
       GameBridge.wipeAllMonsters(); // Let Phaser play boss damage effect/shake/tint red!
       
       if (nextBossHp <= 0) {
@@ -342,7 +389,9 @@ export default function App() {
         setSelectedOption("［極限爆發：超必殺技］");
         setIsFeedbackShowing(true);
         if (activeQuiz) {
-          activeQuiz.explanation = "💥 完美爆發！超必殺技直接撕碎了巨型守護者的防禦，Boss 灰飛煙滅！";
+          activeQuiz.explanation = isSage 
+            ? "⚡🔮 狂雷九天！賢者的雷霆萬鈞奧義將守護者徹底撕裂，Boss 灰飛煙滅！"
+            : "💥 完美爆發！超必殺技直接撕碎了巨型守護者的防禦，Boss 灰飛煙滅！";
         }
       } else {
         const nextIdx = bossComboIndex + 1;
@@ -364,7 +413,32 @@ export default function App() {
         setIsFeedbackShowing(false);
       }
     } else {
-      pushLog(`💥 Jovan 釋放了【極限超必殺技】！全螢幕小怪直接秒殺！💥`);
+      const isSage = gameState.selectedJobId === 'sage';
+      if (isSage) {
+        pushLog(`⚡🔮 【雷霆萬鈞】賢者引導狂烈雷霆奧義，全螢幕小怪灰飛煙滅！💥`);
+        // 20% chance to capture a random uncaptured pet
+        const roll = Math.random();
+        if (roll < 0.20) {
+          const uncapturedPets = PETS_DATABASE.filter(p => !gameState.capturedPetIds.includes(p.id));
+          const petToCapture = uncapturedPets.length > 0 
+            ? uncapturedPets[Math.floor(Math.random() * uncapturedPets.length)] 
+            : PETS_DATABASE[Math.floor(Math.random() * PETS_DATABASE.length)];
+          
+          setGameState(prev => {
+            const alreadyHas = prev.capturedPetIds.includes(petToCapture.id);
+            return {
+              ...prev,
+              capturedPetIds: alreadyHas ? prev.capturedPetIds : [...prev.capturedPetIds, petToCapture.id]
+            };
+          });
+          setShowPetCaptureCelebration(petToCapture);
+          pushLog(`🎉 【聖人降服】賢者的雷霆萬鈞感化了眼前的怪獸，怪獸當即臣服！化身為新魔寵：${petToCapture.emoji} 【${petToCapture.name}】加入了你的收集庫！✨`);
+        } else {
+          pushLog(`🍃 雖然雷霆威力無比，但可惜本次未能成功降服怪物化為魔寵。`);
+        }
+      } else {
+        pushLog(`💥 Jovan 釋放了【極限超必殺技】！全螢幕小怪直接秒殺！💥`);
+      }
       GameBridge.resolveCombat(true, true);
       
       if (activeQuiz) {
@@ -663,17 +737,16 @@ export default function App() {
       setIsLavaLionDoubleDamageActive(false);
       setGameState(prev => {
         const nextFloor = prev.currentFloor + 1;
-        const rewardXP = 30 + nextFloor * 5; // Bonus XP for ascending Floor
         
         // Push floor log outside the state updater synchronously using setTimeout
         setTimeout(() => {
-          pushLog(`🎉 恭喜通過第 ${prev.currentFloor} 層！成功爬上第 ${nextFloor} 層之塔！獲得 +${rewardXP} 闖關 XP。`);
+          pushLog(`🎉 恭喜通過第 ${prev.currentFloor} 層！成功爬上第 ${nextFloor} 層之塔！⚔️`);
         }, 0);
         
-        return awardXP({
+        return {
           ...prev,
           currentFloor: nextFloor
-        }, rewardXP);
+        };
       });
     };
 
@@ -714,6 +787,80 @@ export default function App() {
 
   const pushLog = (msg: string) => {
     setQuestLogs(prev => [...prev.slice(-19), msg]); // Keep last 20 logs for fast rendering
+  };
+
+  const handleMageTeleport = () => {
+    if (!activeQuiz || hasMageTeleportUsed || isFeedbackShowing || flashingOption) return;
+    setHasMageTeleportUsed(true);
+    pushLog("🔮 【時空傳送】法師施展了深奧的星界法術！一陣強烈的奧術藍光將眼前的魔物完全籠罩，瞬間將其傳送至虛空！避戰成功，不消耗生命值，亦不獲得金幣或 XP！🌌");
+    
+    // Wipe monster sprite in Phaser
+    GameBridge.wipeAllMonsters();
+    
+    // Clear the active quiz immediately
+    setActiveQuiz(null);
+    setSelectedOption(null);
+    setIsFeedbackShowing(false);
+    setIsElite(false);
+
+    // Clean cached questions
+    let foundKey: string | null = null;
+    for (const key in monsterQuestionsRef.current) {
+      if (monsterQuestionsRef.current[key]?.id === activeQuiz.id) {
+        foundKey = key;
+        break;
+      }
+    }
+    if (foundKey) {
+      delete monsterQuestionsRef.current[foundKey];
+    }
+  };
+
+  const handleArcherAutoSolve = () => {
+    if (!activeQuiz || hasArcherAutoSolveUsed || isFeedbackShowing || flashingOption) return;
+    setHasArcherAutoSolveUsed(true);
+    pushLog("🏹 【精準偵察】弓箭手拉滿智慧神弓，射出一支偵察之箭！精準射中並鎖定了唯一正確解答！🎯");
+    handleAnswerSubmit(activeQuiz.correctAnswer);
+  };
+
+  const handleSelectJob = (jobId: string) => {
+    if (isPlaying) {
+      pushLog("⚠️ 冒險進行中，無法進行轉職！請先返回大廳或結束本局。");
+      return;
+    }
+    const job = getJobById(jobId);
+    if (!job) return;
+    if (gameState.totalXP < job.unlockXP) {
+      pushLog(`🔒 職業【${job.name}】尚未解鎖！需要累計達 ${job.unlockXP} XP。目前：${gameState.totalXP} XP。`);
+      return;
+    }
+    setGameState(prev => ({
+      ...prev,
+      selectedJobId: jobId
+    }));
+    pushLog(`👑 成功轉職為職業：【${job.emoji} ${job.name}】！`);
+    setShowJobSelectorModal(false);
+    RetroSFX.playShop();
+  };
+
+  const incrementWarlockCombo = () => {
+    if (gameState.selectedJobId !== 'warlock') return;
+    setWarlockCombo(prev => {
+      const nextCombo = prev + 1;
+      if (nextCombo === 3) {
+        setGameState(pState => {
+          const heals = Math.min((pState.maxHp || 5) + (pState.selectedJobId === 'dwarf' ? 2 : 0), pState.hp + 1);
+          if (heals > pState.hp) {
+            pushLog(`🔮 【靈魂抽取】黑魔導士達成 3 連擊！吸取怪獸靈魂能量，成功回復了 1 點 HP！💚`);
+          } else {
+            pushLog(`🔮 【靈魂抽取】黑魔導士達成 3 連擊！吸取了怪獸靈魂（生命值已滿）。`);
+          }
+          return { ...pState, hp: heals };
+        });
+        return 0;
+      }
+      return nextCombo;
+    });
   };
 
   // 3. Game Actions
@@ -891,7 +1038,7 @@ export default function App() {
         }
 
         // Grant Rare Loot 💎
-        const bonusXP = 100;
+        const bonusXP = 10 + Math.floor(Math.random() * 6); // 10 to 15 XP
         const bonusGold = 50;
 
         setGameState(prev => {
@@ -971,6 +1118,7 @@ export default function App() {
         
         if (isElite) {
           if (correct) {
+            incrementWarlockCombo();
             let damage = 1;
             if (isLavaLionDoubleDamageActive) {
               setIsLavaLionDoubleDamageActive(false);
@@ -1004,9 +1152,17 @@ export default function App() {
             }
           } else {
             // Player answered incorrectly
+            if (gameState.selectedJobId === 'warlock') {
+              setWarlockCombo(0);
+            }
             if (isThunderbirdShieldActive) {
               setIsThunderbirdShieldActive(false);
               pushLog(`🦅⚡ 【避雷電網】雷鳥電磁護網抵擋了這一次防禦失誤！HP 沒有減少！❤️`);
+              GameBridge.resolveCombat(false, true);
+              setIsElite(false);
+            } else if (warriorShield) {
+              setWarriorShield(false);
+              pushLog(`🛡️ 【盾牌防護】劍士盾牌防護發動！消耗一次性護盾抵擋了防禦失誤！HP 沒有減少！❤️`);
               GameBridge.resolveCombat(false, true);
               setIsElite(false);
             } else {
@@ -1018,14 +1174,23 @@ export default function App() {
         } else {
           // Normal monster
           if (correct) {
+            incrementWarlockCombo();
             if (isLavaLionDoubleDamageActive) {
               setIsLavaLionDoubleDamageActive(false);
             }
             GameBridge.resolveCombat(true, true);
           } else {
+            // Player answered incorrectly
+            if (gameState.selectedJobId === 'warlock') {
+              setWarlockCombo(0);
+            }
             if (isThunderbirdShieldActive) {
               setIsThunderbirdShieldActive(false);
               pushLog(`🦅⚡ 【避雷電網】雷鳥電磁護網抵擋了這一次防禦失誤！HP 沒有減少！❤️`);
+              GameBridge.resolveCombat(false, true);
+            } else if (warriorShield) {
+              setWarriorShield(false);
+              pushLog(`🛡️ 【盾牌防護】劍士盾牌防護發動！消耗一次性護盾抵擋了防禦失誤！HP 沒有減少！❤️`);
               GameBridge.resolveCombat(false, true);
             } else {
               setGameState(prev => ({ ...prev, hp: Math.max(0, prev.hp - 1) }));
@@ -1063,20 +1228,20 @@ export default function App() {
     }
 
     if (itemType === 'shake') {
-      if (gameState.hp >= gameState.maxHp) {
-        pushLog(`❤️ 秘境商人：『 你的體力已經全滿 (${gameState.hp}/${gameState.maxHp}) 囉！不需要補血。』`);
+      if (gameState.hp >= effectiveMaxHp) {
+        pushLog(`❤️ 秘境商人：『 你的體力已經全滿 (${gameState.hp}/${effectiveMaxHp}) 囉！不需要補血。』`);
         return;
       }
       setGameState(prev => ({
         ...prev,
-        hp: Math.min(prev.maxHp, prev.hp + 1),
+        hp: Math.min(effectiveMaxHp, prev.hp + 1),
         goldCoins: prev.goldCoins - cost
       }));
-      pushLog(`🥛 Jovan 購買並喝下了「特製草莓奶昔」！生命值 +1 ❤️`);
+      pushLog(`🥛 Jovan 購買並喝下了「特製草莓奶昔」！${isCleric ? '⛪ 修士折扣：半價！' : ''}生命值 +1 ❤️`);
       RetroSFX.playShop();
     } else if (itemType === 'crystal') {
-      if (gameState.maxHp >= 8) {
-        pushLog(`🛡️ 秘境商人：『 你的生命上限已達最大極限 (8)，無法再提升了！』`);
+      if (gameState.maxHp >= shopMaxHpLimit) {
+        pushLog(`🛡️ 秘境商人：『 你的生命上限已達最大極限 (${shopMaxHpLimit})，無法再提升了！』`);
         return;
       }
       setGameState(prev => {
@@ -1088,7 +1253,8 @@ export default function App() {
           goldCoins: prev.goldCoins - cost
         };
       });
-      pushLog(`💖 Jovan 融合了「活力心之結晶」！最大生命上限增加至 ${gameState.maxHp + 1} ❤️！`);
+      const isDwarf = gameState.selectedJobId === 'dwarf';
+      pushLog(`💖 Jovan 融合了「活力心之結晶」！${isCleric ? '⛪ 修士折扣：半價！' : ''}最大生命上限增加至 ${gameState.maxHp + 1}${isDwarf ? '（外加矮人重裝體魄加成：有效上限為 ' + (gameState.maxHp + 3) + '）' : ''} ❤️！`);
       RetroSFX.playShop();
     } else if (itemType === 'potion') {
       setGameState(prev => {
@@ -1126,17 +1292,19 @@ export default function App() {
 
   // Lite Permadeath: resets currentFloor back to Floor 1 if HP reaches 0
   const handleReviveHero = () => {
-    setGameState(prev => ({ 
-      ...prev, 
-      currentFloor: 1, 
-      hp: 5,
-      maxHp: 5,
-      totalXP: 0,
-      goldCoins: 0,
-      limitBreakBar: 0,
-      dFactorSlope: 0.2
-    }));
-    pushLog(`💀 戰敗力竭！勇士 Jovan 的體力歸零，被魔法水晶傳送回「第 1 層」重頭開始！所有金幣、學習點數 (XP) 及最大生命上限已被歸零重置！`);
+    setGameState(prev => {
+      const isDwarf = prev.selectedJobId === 'dwarf';
+      return { 
+        ...prev, 
+        currentFloor: 1, 
+        hp: isDwarf ? 7 : 5,
+        maxHp: 5,
+        goldCoins: 0,
+        limitBreakBar: 0,
+        dFactorSlope: 0.2
+      };
+    });
+    pushLog(`💀 戰敗力竭！勇士 Jovan 的體力歸零，被魔法水晶傳送回「第 1 層」重頭開始！金幣與本局狀態已重置，但冒險生涯累積的 ${gameState.totalXP} XP 職業進度永久保留！🌟`);
     setIsPlaying(false); // Reset back to Lobby Hub
     usedQuestionIdsRef.current = []; // Reset used questions list for a brand new run!
     setIsPetSkillUsedThisFloor(false);
@@ -1148,6 +1316,16 @@ export default function App() {
     usedQuestionIdsRef.current = [];
     setIsPetSkillUsedThisFloor(false);
     pendingBossLimitBreakDamageRef.current = 0;
+
+    // Initialize/Refresh job abilities for the spire run
+    setWarriorShield(gameState.selectedJobId === 'warrior');
+    setHasMageTeleportUsed(false);
+    setHasArcherAutoSolveUsed(false);
+    setWarlockCombo(0);
+    setSamuraiExcludedOption(null);
+
+    const job = getJobById(gameState.selectedJobId || 'warrior') || JOBS[0];
+    pushLog(`🏰 進入無限之塔！你當前扮演的職業是：【${job.emoji} ${job.name}】（招式：${job.skillName}）。祝你冒險順利！`);
   };
 
   const handleUpdateNameSubmit = () => {
@@ -1164,6 +1342,13 @@ export default function App() {
   const nextLevelXP = gameState.currentFloor * 100;
   const xpPercentage = Math.min(100, (gameState.totalXP / nextLevelXP) * 100);
   const equippedPet = gameState.equippedPetId ? getPetById(gameState.equippedPetId) : null;
+  const effectiveMaxHp = (gameState.maxHp || 5) + (gameState.selectedJobId === 'dwarf' ? 2 : 0);
+  const currentJob = getJobById(gameState.selectedJobId || 'warrior') || JOBS[0];
+  const isCleric = gameState.selectedJobId === 'cleric';
+  const shakePrice = isCleric ? 5 : 10;
+  const crystalPrice = isCleric ? 25 : 50;
+  const potionPrice = 100;
+  const shopMaxHpLimit = gameState.selectedJobId === 'dwarf' ? 10 : 8;
 
   // Generate date markers for the past 7 days to draw the visual quest log
   const getPastSevenDays = () => {
@@ -1309,17 +1494,27 @@ export default function App() {
                 
                 {/* Avatar and Name */}
                 <div className="flex items-center gap-4 z-10">
-                  <div className="relative flex-shrink-0">
-                    <div className="w-16 h-16 rounded-full border-2 border-yellow-400 bg-indigo-600 flex items-center justify-center text-3xl font-bold shadow-xl">
-                      🚶
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black shadow border border-slate-950">
+                  <div className="relative flex-shrink-0 group">
+                    <button
+                      id="avatar-job-selector-btn"
+                      onClick={() => setShowJobSelectorModal(true)}
+                      className="w-16 h-16 rounded-2xl border-2 border-yellow-400 bg-zinc-950/80 flex items-center justify-center shadow-xl cursor-pointer transition transform hover:scale-105 active:scale-95 group relative overflow-hidden"
+                      title="點擊更換職業"
+                    >
+                      <HeroPixelPreview jobId={gameState.selectedJobId || 'warrior'} size={56} className="border-0 bg-transparent shadow-none" />
+                      <span className="absolute -inset-0.5 bg-yellow-400/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-300 pointer-events-none" />
+                      {/* Interactive indicator overlay */}
+                      <span className="absolute bottom-0 inset-x-0 bg-slate-950/90 text-[8px] text-yellow-300 font-bold py-0.5 text-center rounded-b-none scale-0 group-hover:scale-100 transition-transform origin-bottom">
+                        更換職業
+                      </span>
+                    </button>
+                    <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black shadow border border-slate-950 pointer-events-none">
                       LV {Math.floor(gameState.totalXP / 100) + 1}
                     </div>
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400 truncate">
                         勇士 {gameState.heroName}
                       </h1>
@@ -1331,7 +1526,17 @@ export default function App() {
                         <Edit3 size={14} />
                       </button>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                    {/* Clickable Job Badge */}
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <button
+                        onClick={() => setShowJobSelectorModal(true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/50 hover:border-indigo-500 text-indigo-300 hover:text-indigo-200 text-xs font-black rounded-full shadow-inner transition cursor-pointer"
+                      >
+                        <span>{currentJob.emoji} {currentJob.name}</span>
+                        <span className="text-[10px] text-indigo-400 opacity-80">(點擊更換)</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 line-clamp-1">
                       《Jovan's Endless Quest》無限學術之塔
                     </p>
                   </div>
@@ -1628,6 +1833,7 @@ export default function App() {
                     <PhaserContainer 
                       currentFloor={gameState.currentFloor} 
                       equippedPetId={gameState.equippedPetId} 
+                      selectedJobId={gameState.selectedJobId || 'warrior'}
                       devOverrides={isDevModeUnlocked ? devOverrides : undefined}
                     />
                     
@@ -1933,6 +2139,83 @@ export default function App() {
                       </span>
                     </div>
                   )}
+                </div>
+
+                {/* JRPG Tactical Battle Status HUD */}
+                <div className="mb-2 bg-zinc-950 p-2 border-2 border-zinc-850 rounded-lg text-left max-w-md mx-auto grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] font-mono select-none">
+                  {/* Left: Player & HP */}
+                  <div className="border-r border-zinc-800 pr-2">
+                    <div className="flex justify-between items-center mb-0.5">
+                      <span className="text-yellow-400 font-black">👤 {gameState.heroName || "Jovan"}</span>
+                      <span className="text-[8px] bg-indigo-950 text-indigo-300 px-1 py-0.2 rounded border border-indigo-800/60">LV {Math.floor(gameState.totalXP / 100) + 1}</span>
+                    </div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-rose-400 font-bold">HP:</span>
+                      <span className="tracking-tighter">
+                        {Array.from({ length: effectiveMaxHp }).map((_, idx) => (
+                          <span key={idx} className="text-[10px] sm:text-[11px]">
+                            {idx < gameState.hp ? '❤️' : '🖤'}
+                          </span>
+                        ))}
+                      </span>
+                      <span className="text-[9px] text-zinc-400 ml-auto font-bold">({gameState.hp}/{effectiveMaxHp})</span>
+                    </div>
+                  </div>
+
+                  {/* Right: Selected Job Talent & Live Buff Status */}
+                  <div className="pl-1 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-cyan-400 font-bold flex items-center gap-1">
+                        <span>{currentJob.emoji}</span>
+                        <span>{currentJob.name}</span>
+                      </span>
+                      <span className="text-[8px] text-zinc-500 font-bold">特技</span>
+                    </div>
+                    
+                    <div className="text-[9px] sm:text-[10px] flex items-center justify-between mt-0.5">
+                      {gameState.selectedJobId === 'warrior' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">🛡️ 盾牌防護:</span>
+                          <span className={warriorShield ? "text-emerald-400 font-black animate-pulse font-mono" : "text-rose-500 line-through font-bold font-mono"}>
+                            {warriorShield ? "🟢 已開啟" : "🔴 已消耗"}
+                          </span>
+                        </>
+                      ) : gameState.selectedJobId === 'mage' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">🔮 時空傳送:</span>
+                          <span className={hasMageTeleportUsed ? "text-rose-500 line-through font-bold font-mono" : "text-emerald-400 font-black font-mono"}>
+                            {hasMageTeleportUsed ? "🔴 已使用" : "🟢 蓄勢待發"}
+                          </span>
+                        </>
+                      ) : gameState.selectedJobId === 'samurai' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">👤 心眼看破:</span>
+                          <span className={gameState.hp === 1 ? "text-amber-400 font-black animate-pulse font-mono" : "text-zinc-500 font-bold font-mono"}>
+                            {gameState.hp === 1 ? "🔥 已觸發 (三選一)" : "🔒 HP=1時發動"}
+                          </span>
+                        </>
+                      ) : gameState.selectedJobId === 'archer' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">🏹 自動解答:</span>
+                          <span className={hasArcherAutoSolveUsed ? "text-rose-500 line-through font-bold font-mono" : "text-emerald-400 font-black font-mono"}>
+                            {hasArcherAutoSolveUsed ? "🔴 已使用" : "🟢 可使用"}
+                          </span>
+                        </>
+                      ) : gameState.selectedJobId === 'warlock' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">🔮 魂魄吸收:</span>
+                          <span className="text-indigo-400 font-bold font-mono">
+                            連擊 {warlockCombo} / 3 ⚡
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-zinc-400 font-bold">✨ {currentJob.skillName}:</span>
+                          <span className="text-emerald-400 font-bold font-mono">🟢 常駐生效</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Highly visible Pet Capture countdown timer */}
@@ -2274,8 +2557,10 @@ export default function App() {
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                      {(activeQuiz?.options || []).map((opt, idx) => {
-                        const isSelected = selectedOption === opt;
+                      {(activeQuiz?.options || [])
+                        .filter(opt => opt !== samuraiExcludedOption)
+                        .map((opt, idx) => {
+                          const isSelected = selectedOption === opt;
                         const isFlashing = flashingOption === opt;
                         
                         return (
@@ -2324,6 +2609,33 @@ export default function App() {
                       })}
                     </div>
                   </>
+                )}
+
+                {/* Job Special Active Skills Section */}
+                {isPlaying && activeQuiz && !isFeedbackShowing && !flashingOption && (
+                  <div className="mt-4 pt-4 border-t border-zinc-800 flex flex-wrap gap-2 justify-center">
+                    {/* Mage Teleport */}
+                    {gameState.selectedJobId === 'mage' && !hasMageTeleportUsed && !bossCombo && (
+                      <button
+                        onClick={handleMageTeleport}
+                        className="py-2 px-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-sans font-black text-xs rounded-xl flex items-center gap-2 border-2 border-indigo-400 shadow-[0_3px_0_#4338ca] active:translate-y-0.5 active:shadow-[0_1px_0_#4338ca] transition-all cursor-pointer"
+                      >
+                        <span>🧙‍♂️ 奧術魔法：［時空傳送］</span>
+                        <span className="bg-indigo-950 text-indigo-300 text-[9px] px-1.5 py-0.5 rounded-full border border-indigo-800">每局一次</span>
+                      </button>
+                    )}
+
+                    {/* Archer Auto Solve */}
+                    {gameState.selectedJobId === 'archer' && !hasArcherAutoSolveUsed && (
+                      <button
+                        onClick={handleArcherAutoSolve}
+                        className="py-2 px-4 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-sans font-black text-xs rounded-xl flex items-center gap-2 border-2 border-teal-400 shadow-[0_3px_0_#0f766e] active:translate-y-0.5 active:shadow-[0_1px_0_#0f766e] transition-all cursor-pointer"
+                      >
+                        <span>🏹 精準偵察：［自動解答］</span>
+                        <span className="bg-teal-950 text-teal-300 text-[9px] px-1.5 py-0.5 rounded-full border border-teal-800">每局一次</span>
+                      </button>
+                    )}
+                  </div>
                 )}
 
               </div>
@@ -2483,7 +2795,7 @@ export default function App() {
                     {/* Items Catalog */}
                     <div className="space-y-3 mb-5 max-h-[300px] overflow-y-auto pr-1">
                       
-                      {/* Item 1: Strawberry Milkshake (10 Gold) */}
+                      {/* Item 1: Strawberry Milkshake (shakePrice Gold) */}
                       <div className="bg-zinc-950 border-2 border-slate-800 p-3 flex items-center justify-between gap-3 hover:border-slate-700 transition">
                         <div className="flex-1">
                           <div className="text-sm font-bold text-yellow-400 flex items-center gap-1.5">
@@ -2491,41 +2803,41 @@ export default function App() {
                             <span className="text-xs text-slate-500 font-normal">| 恢復 1 HP</span>
                           </div>
                           <div className="text-[11px] text-slate-300 mt-1">效果：恢復 1 點生命值 ❤️</div>
-                          <div className="text-[10px] text-slate-500 italic mt-0.5">目前生命: {gameState.hp}/{gameState.maxHp}</div>
+                          <div className="text-[10px] text-slate-500 italic mt-0.5">目前生命: {gameState.hp}/{effectiveMaxHp}</div>
                         </div>
                         <button
-                          onClick={() => handleBuyItem('shake', 10)}
-                          disabled={gameState.goldCoins < 10 || gameState.hp >= gameState.maxHp}
+                          onClick={() => handleBuyItem('shake', shakePrice)}
+                          disabled={gameState.goldCoins < shakePrice || gameState.hp >= effectiveMaxHp}
                           className={`px-3 py-2 text-xs font-mono font-bold border border-white transition ${
-                            gameState.goldCoins >= 10 && gameState.hp < gameState.maxHp
+                            gameState.goldCoins >= shakePrice && gameState.hp < effectiveMaxHp
                               ? 'bg-white text-black hover:bg-black hover:text-white cursor-pointer'
                               : 'bg-zinc-900 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50'
                           }`}
                         >
-                          10 🟡 購買
+                          {shakePrice} 🟡 購買
                         </button>
                       </div>
 
-                      {/* Item 2: Heart Crystal (50 Gold) */}
+                      {/* Item 2: Heart Crystal (crystalPrice Gold) */}
                       <div className="bg-zinc-950 border-2 border-slate-800 p-3 flex items-center justify-between gap-3 hover:border-slate-700 transition">
                         <div className="flex-1">
                           <div className="text-sm font-bold text-pink-400 flex items-center gap-1.5">
                             <span>💖 活力心之結晶</span>
                             <span className="text-xs text-slate-500 font-normal">| 上限突破</span>
                           </div>
-                          <div className="text-[11px] text-slate-300 mt-1">效果：最大生命上限 +1 ❤️ (最高 8)</div>
-                          <div className="text-[10px] text-slate-500 italic mt-0.5">目前最大生命: {gameState.maxHp}</div>
+                          <div className="text-[11px] text-slate-300 mt-1">效果：最大生命上限 +1 ❤️ (最高 {shopMaxHpLimit})</div>
+                          <div className="text-[10px] text-slate-500 italic mt-0.5">目前最大生命: {gameState.maxHp} {gameState.selectedJobId === 'dwarf' ? '(外加矮人加成 +2)' : ''}</div>
                         </div>
                         <button
-                          onClick={() => handleBuyItem('crystal', 50)}
-                          disabled={gameState.goldCoins < 50 || gameState.maxHp >= 8}
+                          onClick={() => handleBuyItem('crystal', crystalPrice)}
+                          disabled={gameState.goldCoins < crystalPrice || gameState.maxHp >= shopMaxHpLimit}
                           className={`px-3 py-2 text-xs font-mono font-bold border border-white transition ${
-                            gameState.goldCoins >= 50 && gameState.maxHp < 8
+                            gameState.goldCoins >= crystalPrice && gameState.maxHp < shopMaxHpLimit
                               ? 'bg-white text-black hover:bg-black hover:text-white cursor-pointer'
                               : 'bg-zinc-900 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50'
                           }`}
                         >
-                          50 🟡 購買
+                          {crystalPrice} 🟡 購買
                         </button>
                       </div>
 
@@ -2539,15 +2851,15 @@ export default function App() {
                           <div className="text-[11px] text-slate-300 mt-1">效果：立刻獲得 +300 點 XP 📖</div>
                         </div>
                         <button
-                          onClick={() => handleBuyItem('potion', 100)}
-                          disabled={gameState.goldCoins < 100}
+                          onClick={() => handleBuyItem('potion', potionPrice)}
+                          disabled={gameState.goldCoins < potionPrice}
                           className={`px-3 py-2 text-xs font-mono font-bold border border-white transition ${
-                            gameState.goldCoins >= 100
+                            gameState.goldCoins >= potionPrice
                               ? 'bg-white text-black hover:bg-black hover:text-white cursor-pointer'
                               : 'bg-zinc-900 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50'
                           }`}
                         >
-                          100 🟡 購買
+                          {potionPrice} 🟡 購買
                         </button>
                       </div>
 
@@ -2609,6 +2921,141 @@ export default function App() {
                   className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   確認修改
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 5.5. JOB SELECTOR MODAL */}
+      <AnimatePresence>
+        {showJobSelectorModal && (
+          <div className="fixed inset-0 bg-slate-950/90 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-6 py-10">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-slate-900 border-4 border-indigo-900/60 p-5 sm:p-8 rounded-2xl w-full max-w-4xl shadow-2xl my-auto relative"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setShowJobSelectorModal(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-750 p-1.5 rounded-full transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="text-center mb-6">
+                <span className="text-4xl">👑</span>
+                <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-indigo-400 mt-2 font-sans">
+                  勇士職業公會 • 轉職聖殿
+                </h3>
+                <p className="text-xs text-slate-400 mt-2">
+                  冒險生涯累積的總經驗值（XP）會永久解除新職業的封印。
+                </p>
+                <div className="mt-3 inline-flex items-center gap-2 bg-indigo-950/50 border border-indigo-800/40 px-4 py-1.5 rounded-full text-xs font-bold text-indigo-300">
+                  <span>✨ 冒險生涯累積：</span>
+                  <span className="text-yellow-400 font-mono text-sm">{gameState.totalXP}</span>
+                  <span>XP</span>
+                </div>
+              </div>
+
+              {/* Grid list of jobs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto pr-1 select-none">
+                {JOBS.map((job) => {
+                  const isUnlocked = gameState.totalXP >= job.unlockXP;
+                  const isCurrent = (gameState.selectedJobId || 'warrior') === job.id;
+                  
+                  return (
+                    <div
+                      key={job.id}
+                      onClick={() => isUnlocked && handleSelectJob(job.id)}
+                      className={`p-4 rounded-xl border-2 transition-all relative flex flex-col justify-between h-[180px] ${
+                        isCurrent 
+                          ? 'bg-gradient-to-b from-indigo-950 to-slate-950 border-yellow-400 shadow-[0_4px_12px_rgba(234,179,8,0.2)]' 
+                          : isUnlocked 
+                            ? 'bg-slate-950/70 border-slate-850 hover:border-indigo-500 hover:bg-indigo-950/20 cursor-pointer' 
+                            : 'bg-zinc-950/50 border-zinc-900/60 opacity-60'
+                      }`}
+                    >
+                      <div>
+                        {/* Header: Emoji & Name */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <HeroPixelPreview jobId={job.id} size={40} className="border-2 border-indigo-950 bg-indigo-950/40 shrink-0" />
+                            <div>
+                              <h4 className="text-sm font-black text-slate-100 flex items-center gap-1">
+                                <span>{job.emoji}</span>
+                                <span>{job.name}</span>
+                              </h4>
+                              <p className="text-[10px] text-slate-500 font-mono tracking-wider uppercase">{job.englishName}</p>
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          {isCurrent && (
+                            <span className="text-[9px] font-black text-slate-950 bg-yellow-400 px-1.5 py-0.5 rounded border border-yellow-300">
+                              當前職業
+                            </span>
+                          )}
+                          {!isUnlocked && (
+                            <span className="text-[9px] font-bold text-rose-400 bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-900/40 flex items-center gap-1">
+                              🔒 需 {job.unlockXP} XP
+                            </span>
+                          )}
+                          {isUnlocked && !isCurrent && (
+                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-900/40">
+                              已解鎖
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Skill description */}
+                        <div className="mt-3 bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/40">
+                          <p className="text-[11px] text-yellow-300 font-extrabold flex items-center gap-1">
+                            <span>✨ 專屬被動：【{job.skillName}】</span>
+                          </p>
+                          <p className="text-[10px] text-slate-300 mt-1 leading-relaxed">
+                            {job.skillDesc}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Action button at bottom inside card */}
+                      <div className="mt-3">
+                        {isCurrent ? (
+                          <div className="w-full text-center text-[10px] font-bold text-yellow-400 bg-yellow-950/30 py-1.5 rounded-lg border border-yellow-900/40">
+                            正在穿戴此天賦
+                          </div>
+                        ) : isUnlocked ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectJob(job.id);
+                            }}
+                            className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-lg transition-all shadow-[0_2px_0_#4338ca] hover:translate-y-[-1px] cursor-pointer"
+                          >
+                            切換為該職業
+                          </button>
+                        ) : (
+                          <div className="w-full text-center text-[10px] font-bold text-slate-500 bg-zinc-900/50 py-1.5 rounded-lg border border-zinc-800/40">
+                            還差 {job.unlockXP - gameState.totalXP} XP 解鎖
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Close Action at footer */}
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowJobSelectorModal(false)}
+                  className="px-6 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 text-sm font-bold rounded-xl transition cursor-pointer"
+                >
+                  關閉轉職公會
                 </button>
               </div>
             </motion.div>
@@ -3281,27 +3728,111 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Debug stats utilities */}
-                  <div className="flex justify-between gap-2 border-t border-slate-900 pt-3.5">
-                    <button
-                      onClick={() => {
-                        setGameState(prev => ({ ...prev, goldCoins: prev.goldCoins + 100 }));
-                        pushLog("🛠️ [開發者] 獲得金幣 +100 🟡");
-                      }}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-300 text-[10px] font-bold rounded-lg flex-1 cursor-pointer"
-                    >
-                      🪙 +100 金幣
-                    </button>
-                    <button
-                      onClick={() => {
-                        setGameState(prev => awardXP(prev, 150));
-                        pushLog("🛠️ [開發者] 獲得學習點數 +150 XP ⭐");
-                      }}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-300 text-[10px] font-bold rounded-lg flex-1 cursor-pointer"
-                    >
-                      ⭐ +150 XP
-                    </button>
-                  </div>
+                   {/* Debug stats utilities */}
+                   <div className="space-y-3.5 border-t border-slate-900 pt-3.5">
+                     <div>
+                       <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-1.5">💰 自訂獲得與設定資源（支援直接設定或歸零）</p>
+                       <div className="grid grid-cols-2 gap-4">
+                         {/* Gold Coins input & add/set buttons */}
+                         <div className="space-y-1.5 bg-slate-950/60 p-2.5 rounded-xl border border-slate-900">
+                           <label className="text-[10px] text-yellow-500 font-black block">🟡 金幣數量管理</label>
+                           <input
+                             type="number"
+                             value={devCustomGold}
+                             onChange={(e) => setDevCustomGold(e.target.value)}
+                             className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-yellow-400 font-mono w-full focus:outline-none focus:border-yellow-500"
+                             placeholder="100"
+                           />
+                           <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                             <button
+                               onClick={() => {
+                                 const amount = parseInt(devCustomGold, 10);
+                                 if (!isNaN(amount)) {
+                                   setGameState(prev => ({ ...prev, goldCoins: prev.goldCoins + amount }));
+                                   pushLog(`🛠️ [開發者] 金幣增加了 +${amount} 🟡`);
+                                 }
+                               }}
+                               className="py-1 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 text-yellow-400 text-[10px] font-bold rounded cursor-pointer transition active:scale-95"
+                             >
+                               ➕ 增加
+                             </button>
+                             <button
+                               onClick={() => {
+                                 const amount = parseInt(devCustomGold, 10);
+                                 if (!isNaN(amount) && amount >= 0) {
+                                   setGameState(prev => ({ ...prev, goldCoins: amount }));
+                                   pushLog(`🛠️ [開發者] 直接設定金幣為 ${amount} 🟡`);
+                                 }
+                               }}
+                               className="py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[10px] font-black rounded cursor-pointer transition active:scale-95"
+                             >
+                               🎯 設定
+                             </button>
+                           </div>
+                         </div>
+
+                         {/* XP Input & add/set buttons */}
+                         <div className="space-y-1.5 bg-slate-950/60 p-2.5 rounded-xl border border-slate-900">
+                           <label className="text-[10px] text-emerald-400 font-black block">⭐ XP 學習點數管理</label>
+                           <input
+                             type="number"
+                             value={devCustomXP}
+                             onChange={(e) => setDevCustomXP(e.target.value)}
+                             className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-emerald-400 font-mono w-full focus:outline-none focus:border-emerald-500"
+                             placeholder="150"
+                           />
+                           <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                             <button
+                               onClick={() => {
+                                 const amount = parseInt(devCustomXP, 10);
+                                 if (!isNaN(amount)) {
+                                   setGameState(prev => awardXP(prev, amount));
+                                   pushLog(`🛠️ [開發者] 獲得學習點數 +${amount} XP ⭐`);
+                                 }
+                               }}
+                               className="py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold rounded cursor-pointer transition active:scale-95"
+                             >
+                               ➕ 增加
+                             </button>
+                             <button
+                               onClick={() => {
+                                 const amount = parseInt(devCustomXP, 10);
+                                 if (!isNaN(amount) && amount >= 0) {
+                                   setGameState(prev => ({ ...prev, totalXP: amount }));
+                                   pushLog(`🛠️ [開發者] 直接設定生涯總學習點數為 ${amount} XP ⭐`);
+                                 }
+                               }}
+                               className="py-1 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-teal-300 text-[10px] font-black rounded cursor-pointer transition active:scale-95"
+                             >
+                               🎯 設定
+                             </button>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+
+                     {/* Quick Zero Presets Row */}
+                     <div className="flex justify-between gap-2 bg-slate-950/40 p-2 rounded-lg border border-slate-900">
+                       <button
+                         onClick={() => {
+                           setGameState(prev => ({ ...prev, goldCoins: 0 }));
+                           pushLog("🛠️ [開發者] 金幣已歸零 🟡");
+                         }}
+                         className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/50 text-rose-300 text-[9px] font-bold rounded cursor-pointer flex-1 text-center transition"
+                       >
+                         🧹 金幣一鍵歸零
+                       </button>
+                       <button
+                         onClick={() => {
+                           setGameState(prev => ({ ...prev, totalXP: 0 }));
+                           pushLog("🛠️ [開發者] 生涯總 XP 已歸零 ⭐");
+                         }}
+                         className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/50 text-rose-300 text-[9px] font-bold rounded cursor-pointer flex-1 text-center transition"
+                       >
+                         🧹 XP 一鍵歸零
+                       </button>
+                     </div>
+                   </div>
 
                   <div className="flex justify-center pt-2">
                     <button

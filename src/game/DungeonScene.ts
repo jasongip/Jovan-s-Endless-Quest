@@ -35,6 +35,7 @@ export class DungeonScene extends Phaser.Scene {
   
   private currentFloor = 1;
   private equippedPetId: string | null = null;
+  private selectedJobId: string | null = null;
   private devOverrides: any = null;
   private activeMonsterId: string | null = null;
   private activeMonsterSprite: any = null;
@@ -46,9 +47,10 @@ export class DungeonScene extends Phaser.Scene {
     super({ key: 'DungeonScene' });
   }
 
-  init(data: { floor?: number; equippedPetId?: string | null; devOverrides?: any }) {
+  init(data: { floor?: number; equippedPetId?: string | null; selectedJobId?: string | null; devOverrides?: any }) {
     this.currentFloor = data.floor || 1;
     this.equippedPetId = data.equippedPetId || null;
+    this.selectedJobId = data.selectedJobId || null;
     this.devOverrides = data.devOverrides || null;
     this.playerGridX = 1;
     this.playerGridY = 8;
@@ -78,7 +80,17 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.textures.exists('ruins')) this.createRuinsTexture();
     if (!this.textures.exists('ruin_wall')) this.createRuinWallTexture();
 
-    if (!this.textures.exists('hero')) this.createHeroTexture();
+    // Create beautiful job-specific JRPG hero sprites
+    const jobsList = ['warrior', 'samurai', 'dwarf', 'mage', 'warlock', 'cleric', 'thief', 'dancer', 'archer', 'sage'];
+    jobsList.forEach(jobId => {
+      const texKey = `hero_${jobId}`;
+      if (!this.textures.exists(texKey)) {
+        this.createHeroTextureForJob(texKey, jobId);
+      }
+    });
+    if (!this.textures.exists('hero')) {
+      this.createHeroTextureForJob('hero', 'warrior');
+    }
     if (!this.textures.exists('math_monster')) this.createMonsterTexture('math_monster', '#a855f7', '#6b21a8'); // Purple
     if (!this.textures.exists('chinese_monster')) this.createMonsterTexture('chinese_monster', '#f43f5e', '#be123c'); // Pink
     if (!this.textures.exists('boss_monster')) this.createMonsterTexture('boss_monster', '#eab308', '#ef4444'); // Golden body with red horns
@@ -244,7 +256,9 @@ export class DungeonScene extends Phaser.Scene {
     
     this.player = this.add.container(startX, startY);
     
-    const sprite = this.add.sprite(0, 0, 'hero');
+    const activeJobKey = `hero_${this.selectedJobId || 'warrior'}`;
+    const texKey = this.textures.exists(activeJobKey) ? activeJobKey : 'hero';
+    const sprite = this.add.sprite(0, 0, texKey);
     sprite.setName('body');
     this.player.add(sprite);
 
@@ -638,6 +652,31 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
 
+    // Dancer (舞者) - 50% chance for an extra chest
+    if (this.selectedJobId === 'dancer' && Math.random() < 0.5 && eligibleCells.length > 0) {
+      const cell = eligibleCells.pop()!;
+      const cx = cell.x * this.tileSize + this.tileSize / 2;
+      const cy = cell.y * this.tileSize + this.tileSize / 2;
+      const sprite = this.add.sprite(cx, cy, 'chest');
+      sprite.setData('type', 'chest');
+      sprite.setData('gridX', cell.x);
+      sprite.setData('gridY', cell.y);
+      
+      this.tweens.add({
+        targets: sprite,
+        scale: 1.1,
+        duration: 1000 + Math.random() * 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+      
+      this.interactivesGroup.add(sprite);
+      this.carvePath(this.playerGridX, this.playerGridY, cell.x, cell.y);
+      
+      this.safeCall(GameBridge.onLogUpdated, `💃 舞者輕盈步法發動：關卡中額外多生成了一個古老寶箱！🎁`);
+    }
+
     // Carve reachable paths to all 3 portals!
     this.portalsGroup.getChildren().forEach((pObj: any) => {
       const px = pObj.getData('gridX');
@@ -895,19 +934,15 @@ export class DungeonScene extends Phaser.Scene {
     this.createConfetti(iObj.x, iObj.y);
 
     if (type === 'rock') {
-      // Rock: 0-5 gold coins
-      const gold = Math.floor(Math.random() * 6);
-      if (gold > 0) {
-        this.safeCall(GameBridge.onGoldGained, gold);
-        RetroSFX.playCoin();
-      } else {
-        RetroSFX.playClick();
-      }
-      this.safeCall(GameBridge.onLogUpdated, `🪨 Jovan 翻開了一塊路邊的奇異原石...` + (gold > 0 ? `驚喜地發現了 ${gold} 金幣！🟡` : "可惜底下什麼都沒有。🧹"));
-      this.showFloatingText(iObj.x, iObj.y - 20, gold > 0 ? `+${gold} 金幣 🟡` : "空空如也 🧹", '#cbd5e1');
+      // Rock: 1-5 gold coins
+      const gold = 1 + Math.floor(Math.random() * 5);
+      this.safeCall(GameBridge.onGoldGained, gold);
+      RetroSFX.playCoin();
+      this.safeCall(GameBridge.onLogUpdated, `🪨 Jovan 翻開了一塊路邊的奇異原石...驚喜地發現了 ${gold} 金幣！🟡`);
+      this.showFloatingText(iObj.x, iObj.y - 20, `+${gold} 金幣 🟡`, '#cbd5e1');
     } 
     else if (type === 'skeleton') {
-      // Skeleton: 10% damage, 90% loot
+      // Skeleton: 10% damage, 90% loot (max 5 gold or 5 XP)
       const isDamaged = Math.random() < 0.1;
       if (isDamaged) {
         this.safeCall(GameBridge.onHpLost, 1);
@@ -924,42 +959,40 @@ export class DungeonScene extends Phaser.Scene {
             this.safeCall(GameBridge.onLogUpdated, `💀 從散落的骸骨堆中，Jovan 發現並喝下「微光生命藥水」！HP +1 ❤️`);
             this.showFloatingText(iObj.x, iObj.y - 20, "生命藥水！HP +1 ❤️", '#4ade80');
           } else {
-            this.safeCall(GameBridge.onXPGained, 25);
+            const xp = 1 + Math.floor(Math.random() * 5);
+            this.safeCall(GameBridge.onXPGained, xp);
             RetroSFX.playFanfare();
-            this.safeCall(GameBridge.onLogUpdated, `💀 從散落的骸骨堆中，Jovan 發現並喝下「微光智慧藥水」！獲得 +25 XP ⭐`);
-            this.showFloatingText(iObj.x, iObj.y - 20, "+25 XP ⭐", '#60a5fa');
+            this.safeCall(GameBridge.onLogUpdated, `💀 從散落的骸骨堆中，Jovan 發現並喝下「微光智慧藥水」！獲得 +${xp} XP ⭐`);
+            this.showFloatingText(iObj.x, iObj.y - 20, `+${xp} XP ⭐`, '#60a5fa');
           }
         } else {
-          const gold = Math.floor(Math.random() * 6);
-          if (gold > 0) {
-            this.safeCall(GameBridge.onGoldGained, gold);
-            RetroSFX.playCoin();
-          } else {
-            RetroSFX.playClick();
-          }
+          const gold = 1 + Math.floor(Math.random() * 5);
+          this.safeCall(GameBridge.onGoldGained, gold);
+          RetroSFX.playCoin();
           this.safeCall(GameBridge.onLogUpdated, `💀 從骸骨堆中，Jovan 搜刮到 ${gold} 金幣！🟡`);
-          this.showFloatingText(iObj.x, iObj.y - 20, gold > 0 ? `+${gold} 金幣 🟡` : "空空如也 🧹", '#facc15');
+          this.showFloatingText(iObj.x, iObj.y - 20, `+${gold} 金幣 🟡`, '#facc15');
         }
       }
     } 
     else if (type === 'bag') {
-      // Money Bag: random potion or gold (5-10 gold)
+      // Money Bag: random potion or gold (1-5 gold or 1-5 XP)
       const isPotion = Math.random() < 0.3;
       if (isPotion) {
         const isHp = Math.random() < 0.5;
         if (isHp) {
           this.safeCall(GameBridge.onHpHealed, 1);
           RetroSFX.playFanfare();
-          this.safeCall(GameBridge.onLogUpdated, `💰 拾起錢袋，裡面竟然裝有一瓶「微光生命藥水」！立即飲用 HP +1 ❤️`);
+          this.safeCall(GameBridge.onLogUpdated, `💰 拾起錢袋，裡面裝有一瓶「微光生命藥水」！立即飲用 HP +1 ❤️`);
           this.showFloatingText(iObj.x, iObj.y - 20, "生命藥水！HP +1 ❤️", '#4ade80');
         } else {
-          this.safeCall(GameBridge.onXPGained, 25);
+          const xp = 1 + Math.floor(Math.random() * 5);
+          this.safeCall(GameBridge.onXPGained, xp);
           RetroSFX.playFanfare();
-          this.safeCall(GameBridge.onLogUpdated, `💰 拾起錢袋，裡面裝有一瓶「微光智慧藥水」！立即飲用獲得 +25 XP ⭐`);
-          this.showFloatingText(iObj.x, iObj.y - 20, "+25 XP ⭐", '#60a5fa');
+          this.safeCall(GameBridge.onLogUpdated, `💰 拾起錢袋，裡面裝有一瓶「微光智慧藥水」！立即飲用獲得 +${xp} XP ⭐`);
+          this.showFloatingText(iObj.x, iObj.y - 20, `+${xp} XP ⭐`, '#60a5fa');
         }
       } else {
-        const gold = 5 + Math.floor(Math.random() * 6);
+        const gold = 1 + Math.floor(Math.random() * 5);
         this.safeCall(GameBridge.onGoldGained, gold);
         RetroSFX.playCoin();
         this.safeCall(GameBridge.onLogUpdated, `💰 撿到遺落的錢袋！獲得了 ${gold} 金幣。🟡`);
@@ -967,7 +1000,7 @@ export class DungeonScene extends Phaser.Scene {
       }
     } 
     else if (type === 'chest') {
-      // Treasure Chest: 5% mimic, 95% rewards
+      // Treasure Chest: 5% mimic, 95% rewards (1-5 gold or 1-5 XP)
       const isMimic = Math.random() < 0.05;
       if (isMimic) {
         this.safeCall(GameBridge.onHpLost, 1);
@@ -984,13 +1017,14 @@ export class DungeonScene extends Phaser.Scene {
             this.safeCall(GameBridge.onLogUpdated, `🎁 打開古老寶箱，裡面藏有「強效生命藥水」！立即飲用 HP +1 ❤️`);
             this.showFloatingText(iObj.x, iObj.y - 20, "生命藥水！HP +1 ❤️", '#4ade80');
           } else {
-            this.safeCall(GameBridge.onXPGained, 40);
+            const xp = 1 + Math.floor(Math.random() * 5);
+            this.safeCall(GameBridge.onXPGained, xp);
             RetroSFX.playFanfare();
-            this.safeCall(GameBridge.onLogUpdated, `🎁 打開古老寶箱，裡面藏有「強效智慧藥水」！獲得 +40 XP ⭐`);
-            this.showFloatingText(iObj.x, iObj.y - 20, "+40 XP ⭐", '#60a5fa');
+            this.safeCall(GameBridge.onLogUpdated, `🎁 打開古老寶箱，裡面藏有「強效智慧藥水」！獲得 +${xp} XP ⭐`);
+            this.showFloatingText(iObj.x, iObj.y - 20, `+${xp} XP ⭐`, '#60a5fa');
           }
         } else {
-          const gold = 5 + Math.floor(Math.random() * 6);
+          const gold = 1 + Math.floor(Math.random() * 5);
           this.safeCall(GameBridge.onGoldGained, gold);
           RetroSFX.playCoin();
           this.safeCall(GameBridge.onLogUpdated, `🎁 寶箱打開了！獲得了 ${gold} 金幣。🟡`);
@@ -1118,10 +1152,11 @@ export class DungeonScene extends Phaser.Scene {
               
               // Elite grants 2x gold and 2.5x XP rewards!
               const goldMultiplier = isElite ? 2 : 1;
-              const xpMultiplier = isElite ? 2.5 : 1;
 
               const lootGold = Math.floor((15 + Math.floor(Math.random() * 11)) * goldMultiplier);
-              const lootXP = Math.floor(20 * xpMultiplier);
+              const lootXP = isElite 
+                ? (5 + Math.floor(Math.random() * 6)) // 5 to 10 XP
+                : (1 + Math.floor(Math.random() * 5)); // 1 to 5 XP
               
               this.safeCall(GameBridge.onGoldGained, lootGold);
               this.safeCall(GameBridge.onXPGained, lootXP);
@@ -1223,9 +1258,10 @@ export class DungeonScene extends Phaser.Scene {
           monsterSprite.destroy();
 
           const goldMultiplier = isElite ? 2 : 1;
-          const xpMultiplier = isElite ? 2.5 : 1;
           const lootGold = Math.floor((15 + Math.floor(Math.random() * 11)) * goldMultiplier);
-          const lootXP = Math.floor(20 * xpMultiplier);
+          const lootXP = isElite 
+            ? (5 + Math.floor(Math.random() * 6)) // 5 to 10 XP
+            : (1 + Math.floor(Math.random() * 5)); // 1 to 5 XP
 
           this.safeCall(GameBridge.onGoldGained, lootGold);
           this.safeCall(GameBridge.onXPGained, lootXP);
@@ -1555,29 +1591,141 @@ export class DungeonScene extends Phaser.Scene {
     canvas.refresh();
   }
 
-  private createHeroTexture() {
-    const canvas = this.textures.createCanvas('hero', this.tileSize, this.tileSize);
+  private createHeroTextureForJob(key: string, jobId: string) {
+    const canvas = this.textures.createCanvas(key, this.tileSize, this.tileSize);
     const ctx = canvas.getContext();
     
     ctx.clearRect(0, 0, this.tileSize, this.tileSize);
     
-    ctx.fillStyle = '#60a5fa';
+    // Default values
+    let bodyColor = '#3b82f6'; // Blue warrior plate
+    let hairColor = '#eab308'; // Golden blond
+    let hairHighlightColor = '#fef08a';
+    let skinColor = '#fed7aa'; // Peach skin
+    let rightWeaponColor = '#cbd5e1';
+    let rightWeaponHandleColor = '#ea580c';
+    let hasShield = false;
+    let hasConicalHat = false;
+    let conicalHatColor = '#581c87';
+    let conicalHatTrimColor = '#c084fc';
+    let hasHalo = false;
+    let isStout = false; // Dwarf has wider, shorter body
+    let hasBeard = false;
+    let beardColor = '#ea580c';
+    let eyesColor = '#0f172a';
+
+    // Customize values based on jobId
+    if (jobId === 'warrior') {
+      bodyColor = '#3b82f6'; // blue armor
+      hairColor = '#fbbf24'; // blonde
+      hairHighlightColor = '#fef08a';
+      hasShield = true;
+    } else if (jobId === 'samurai') {
+      bodyColor = '#b91c1c'; // deep red
+      hairColor = '#111827'; // black
+      hairHighlightColor = '#374151';
+      rightWeaponColor = '#f8fafc'; // gleaming steel katana
+      rightWeaponHandleColor = '#111827';
+    } else if (jobId === 'dwarf') {
+      bodyColor = '#b45309'; // copper/bronze mail
+      hairColor = '#d97706'; // ginger hair
+      hairHighlightColor = '#f59e0b';
+      isStout = true;
+      hasBeard = true;
+      beardColor = '#ea580c';
+      rightWeaponColor = '#94a3b8'; // big twin iron axe
+      rightWeaponHandleColor = '#78350f';
+    } else if (jobId === 'mage') {
+      bodyColor = '#6b21a8'; // purple robes
+      hairColor = '#e2e8f0'; // silver white hair
+      hairHighlightColor = '#ffffff';
+      hasConicalHat = true;
+      conicalHatColor = '#581c87';
+      conicalHatTrimColor = '#c084fc';
+      rightWeaponColor = '#38bdf8'; // azure glowing wand orb
+      rightWeaponHandleColor = '#78350f'; // wooden staff
+    } else if (jobId === 'warlock') {
+      bodyColor = '#1e1b4b'; // dark void purple robe
+      hairColor = '#a855f7'; // violet spiky hair
+      hairHighlightColor = '#e9d5ff';
+      hasConicalHat = true;
+      conicalHatColor = '#0f172a'; // void black hat
+      conicalHatTrimColor = '#22c55e'; // lime green trim
+      rightWeaponColor = '#a3e635'; // acidic green spellbook glow
+      rightWeaponHandleColor = '#1e1b4b';
+    } else if (jobId === 'cleric') {
+      bodyColor = '#f8fafc'; // pure white robes
+      hairColor = '#78350f'; // soft brown hair
+      hairHighlightColor = '#b45309';
+      hasHalo = true;
+      rightWeaponColor = '#facc15'; // golden cross staff
+      rightWeaponHandleColor = '#eab308';
+    } else if (jobId === 'thief') {
+      bodyColor = '#064e3b'; // dark forest green leather
+      hairColor = '#7c2d12'; // auburn hair
+      hairHighlightColor = '#ba5911';
+      rightWeaponColor = '#94a3b8'; // dual silver daggers
+      rightWeaponHandleColor = '#111827';
+    } else if (jobId === 'dancer') {
+      bodyColor = '#db2777'; // ruby pink dance dress
+      hairColor = '#f472b6'; // pink flowing hair
+      hairHighlightColor = '#fbcfe8';
+      rightWeaponColor = '#ec4899'; // pink silk fan
+      rightWeaponHandleColor = '#fbbf24'; // gold fan handle
+    } else if (jobId === 'archer') {
+      bodyColor = '#16a34a'; // emerald green outfit
+      hairColor = '#84cc16'; // lime hair
+      hairHighlightColor = '#bef264';
+      rightWeaponColor = '#a16207'; // wooden longbow
+      rightWeaponHandleColor = '#eab308';
+    } else if (jobId === 'sage') {
+      bodyColor = '#1d4ed8'; // deep sapphire robe
+      hairColor = '#cbd5e1'; // long white sage beard & hair
+      hairHighlightColor = '#f1f5f9';
+      hasBeard = true;
+      beardColor = '#cbd5e1';
+      rightWeaponColor = '#ffffff'; // glowing ancient tome
+      rightWeaponHandleColor = '#b45309'; // leather book binding
+    }
+
+    // 1. Draw Body/Robes/Armor
+    ctx.fillStyle = bodyColor;
     ctx.beginPath();
-    ctx.arc(24, 26, 12, 0, Math.PI * 2);
+    if (isStout) {
+      ctx.arc(24, 29, 14, 0, Math.PI * 2);
+    } else {
+      ctx.arc(24, 26, 12, 0, Math.PI * 2);
+    }
     ctx.fill();
-    
-    ctx.fillStyle = '#facc15';
+
+    // 2. Draw Hair (back & crown)
+    ctx.fillStyle = hairColor;
     ctx.beginPath();
-    ctx.arc(24, 20, 11, Math.PI, 0);
+    ctx.arc(24, 18, 11, Math.PI, 0);
     ctx.fill();
 
-    ctx.fillStyle = '#fef08a';
-    ctx.fillRect(14, 19, 20, 3);
+    // Hair highlights
+    ctx.fillStyle = hairHighlightColor;
+    ctx.fillRect(14, 17, 20, 3);
 
-    ctx.fillStyle = '#fed7aa';
-    ctx.fillRect(16, 21, 16, 6);
+    // 3. Draw Face (skin)
+    ctx.fillStyle = skinColor;
+    if (isStout) {
+      ctx.fillRect(15, 22, 18, 6);
+    } else {
+      ctx.fillRect(16, 21, 16, 6);
+    }
 
-    ctx.fillStyle = '#0f172a';
+    // 4. Draw Beard
+    if (hasBeard) {
+      ctx.fillStyle = beardColor;
+      ctx.fillRect(15, 26, 18, 8);
+      ctx.fillRect(13, 22, 2, 6);
+      ctx.fillRect(33, 22, 2, 6);
+    }
+
+    // 5. Draw Eyes
+    ctx.fillStyle = eyesColor;
     ctx.fillRect(18, 22, 3, 3);
     ctx.fillRect(27, 22, 3, 3);
 
@@ -1585,20 +1733,136 @@ export class DungeonScene extends Phaser.Scene {
     ctx.fillRect(18, 22, 1, 1);
     ctx.fillRect(27, 22, 1, 1);
 
+    // Pink Cheeks
     ctx.fillStyle = '#f43f5e';
     ctx.fillRect(15, 25, 2, 2);
     ctx.fillRect(31, 25, 2, 2);
 
-    ctx.fillStyle = '#b45309';
-    ctx.fillRect(32, 22, 6, 10);
-    ctx.fillStyle = '#ea580c';
-    ctx.fillRect(34, 24, 2, 6);
+    // 6. Conical wizard/warlock hat
+    if (hasConicalHat) {
+      ctx.fillStyle = conicalHatColor;
+      ctx.fillRect(10, 12, 28, 4);
+      
+      ctx.beginPath();
+      ctx.moveTo(12, 12);
+      ctx.lineTo(24, 0);
+      ctx.lineTo(36, 12);
+      ctx.closePath();
+      ctx.fill();
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillRect(10, 16, 3, 14);
-    ctx.fillStyle = '#475569';
-    ctx.fillRect(8, 26, 7, 2);
-    
+      ctx.fillStyle = conicalHatTrimColor;
+      ctx.fillRect(14, 11, 20, 2);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(23, 8, 3, 3);
+    }
+
+    // 7. Halo
+    if (hasHalo) {
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(24, 6, 8, 3, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 8. Shield
+    if (hasShield) {
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(6, 18, 5, 12);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(8, 20, 1, 8);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(5, 18, 1, 12);
+      ctx.fillRect(11, 18, 1, 12);
+      ctx.fillRect(5, 17, 7, 1);
+      ctx.fillRect(5, 30, 7, 1);
+    }
+
+    // 9. Weapons
+    if (jobId === 'warrior') {
+      ctx.fillStyle = rightWeaponColor;
+      ctx.fillRect(36, 12, 3, 16);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(34, 25, 7, 2);
+      ctx.fillStyle = '#7c2d12';
+      ctx.fillRect(37, 27, 1, 5);
+    } else if (jobId === 'samurai') {
+      ctx.strokeStyle = rightWeaponColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(35, 30);
+      ctx.lineTo(44, 10);
+      ctx.stroke();
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(34, 28, 4, 2);
+    } else if (jobId === 'dwarf') {
+      ctx.fillStyle = rightWeaponHandleColor;
+      ctx.fillRect(36, 12, 2, 20);
+      ctx.fillStyle = rightWeaponColor;
+      ctx.fillRect(32, 14, 4, 6);
+      ctx.fillRect(38, 14, 4, 6);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(31, 15, 1, 4);
+      ctx.fillRect(42, 15, 1, 4);
+    } else if (jobId === 'mage') {
+      ctx.fillStyle = rightWeaponHandleColor;
+      ctx.fillRect(37, 12, 2, 20);
+      ctx.fillStyle = rightWeaponColor;
+      ctx.beginPath();
+      ctx.arc(38, 10, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (jobId === 'warlock') {
+      ctx.fillStyle = rightWeaponHandleColor;
+      ctx.fillRect(37, 14, 2, 18);
+      ctx.fillStyle = rightWeaponColor;
+      ctx.fillRect(34, 8, 7, 6);
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(35, 9, 5, 4);
+    } else if (jobId === 'cleric') {
+      ctx.fillStyle = rightWeaponHandleColor;
+      ctx.fillRect(37, 12, 2, 20);
+      ctx.fillStyle = rightWeaponColor;
+      ctx.fillRect(34, 14, 8, 2);
+      ctx.fillRect(37, 11, 2, 8);
+    } else if (jobId === 'thief') {
+      ctx.fillStyle = rightWeaponColor;
+      ctx.fillRect(37, 18, 2, 8);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(36, 26, 4, 1);
+      ctx.fillStyle = rightWeaponColor;
+      ctx.fillRect(9, 18, 2, 8);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(8, 26, 4, 1);
+    } else if (jobId === 'dancer') {
+      ctx.fillStyle = rightWeaponHandleColor;
+      ctx.fillRect(37, 24, 2, 6);
+      ctx.fillStyle = rightWeaponColor;
+      ctx.beginPath();
+      ctx.arc(38, 21, 6, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#f472b6';
+      ctx.fillRect(35, 20, 6, 2);
+    } else if (jobId === 'archer') {
+      ctx.strokeStyle = rightWeaponColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(38, 22, 8, -Math.PI / 2, Math.PI / 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(38, 14);
+      ctx.lineTo(38, 30);
+      ctx.stroke();
+    } else if (jobId === 'sage') {
+      ctx.fillStyle = rightWeaponHandleColor;
+      ctx.fillRect(33, 16, 10, 11);
+      ctx.fillStyle = rightWeaponColor;
+      ctx.fillRect(34, 17, 8, 9);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(38, 21, 2, 2);
+    }
+
     canvas.refresh();
   }
 

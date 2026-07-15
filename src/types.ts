@@ -21,6 +21,7 @@ export interface GameState {
   limitBreakBar?: number; // 0 to 10
   equippedPetId?: string | null;
   capturedPetIds?: string[];
+  selectedJobId?: string; // Selected Job/Class ID
 }
 
 export interface QuizQuestion {

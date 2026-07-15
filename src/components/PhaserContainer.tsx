@@ -10,6 +10,7 @@ import { GameBridge } from '../game/GameBridge';
 interface PhaserContainerProps {
   currentFloor: number;
   equippedPetId: string | null;
+  selectedJobId?: string;
   devOverrides?: {
     petMode: string;
     eliteMode: string;
@@ -17,7 +18,7 @@ interface PhaserContainerProps {
   };
 }
 
-export default function PhaserContainer({ currentFloor, equippedPetId, devOverrides }: PhaserContainerProps) {
+export default function PhaserContainer({ currentFloor, equippedPetId, selectedJobId, devOverrides }: PhaserContainerProps) {
   const gameRef = useRef<any>(null);
   const containerId = 'phaser-game-viewport';
   const [phaserReady, setPhaserReady] = useState(false);
@@ -82,7 +83,7 @@ export default function PhaserContainer({ currentFloor, equippedPetId, devOverri
       gameRef.current = phaserGame;
       
       // Register and start scene with data in a single clean non-blocking call
-      phaserGame.scene.add('DungeonScene', DungeonScene, true, { floor: currentFloor, equippedPetId, devOverrides });
+      phaserGame.scene.add('DungeonScene', DungeonScene, true, { floor: currentFloor, equippedPetId, selectedJobId, devOverrides });
     } catch (err) {
       console.error("Failed to initialize Phaser 3 Game instance:", err);
       setLoadError("初始化遊戲失敗，請重新整理網頁。");
@@ -106,10 +107,10 @@ export default function PhaserContainer({ currentFloor, equippedPetId, devOverri
     if (gameRef.current && gameRef.current.scene) {
       const activeScene = gameRef.current.scene.getScene('DungeonScene');
       if (activeScene && gameRef.current.scene.isActive('DungeonScene')) {
-        activeScene.scene.restart({ floor: currentFloor, equippedPetId, devOverrides });
+        activeScene.scene.restart({ floor: currentFloor, equippedPetId, selectedJobId, devOverrides });
       }
     }
-  }, [currentFloor, equippedPetId, devOverrides]);
+  }, [currentFloor, equippedPetId, selectedJobId, devOverrides]);
 
   return (
     <div className="relative w-full flex items-center justify-center p-2 bg-slate-950/40 rounded-2xl border-4 border-slate-700/80 shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden">
