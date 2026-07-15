@@ -8,6 +8,18 @@
     <meta name="apple-mobile-web-app-title" content="Infinite Spire" />
     <meta name="mobile-web-app-capable" content="yes" />
     
+    <script>
+      // Automatically redirect to the trailing slash version when hosted on GitHub Pages
+      // to ensure relative assets (./assets/...) resolve correctly rather than 404ing.
+      if (
+        window.location.hostname.includes('github.io') && 
+        !window.location.pathname.endsWith('/') && 
+        !window.location.pathname.split('/').pop().includes('.')
+      ) {
+        window.location.replace(window.location.href + '/');
+      }
+    </script>
+    
     <!-- Phaser 3 Game Engine CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     

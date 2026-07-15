@@ -4,12 +4,8 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
-  // Use absolute repository subpath for GitHub Pages builds in GitHub Actions,
-  // and relative paths './' for AI Studio / Cloud Run environments.
-  const base = process.env.GITHUB_ACTIONS === 'true' ? '/Jovan-s-Endless-Quest/' : './';
-
   return {
-    base,
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
