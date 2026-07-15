@@ -1481,12 +1481,12 @@ export default function App() {
 
       {/* 2. LOBBY / HUB MODE SCREEN */}
       {!isPlaying ? (
-        <main className="flex-1 w-full max-w-7xl mx-auto p-4 flex flex-col gap-4 animate-fade-in">
+        <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 md:p-8 md:py-12 flex flex-col gap-4 sm:gap-6 md:gap-8 animate-fade-in justify-center">
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
             
             {/* Left Column: Hero Status & Companion Pet */}
-            <div className="lg:col-span-5 flex flex-col gap-4">
+            <div className="lg:col-span-5 flex flex-col gap-4 sm:gap-6">
               
               {/* Compact Hero Card */}
               <div className="w-full bg-gradient-to-b from-slate-950 to-indigo-950 border-2 border-indigo-900 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col gap-4">
@@ -1498,24 +1498,24 @@ export default function App() {
                     <button
                       id="avatar-job-selector-btn"
                       onClick={() => setShowJobSelectorModal(true)}
-                      className="w-16 h-16 rounded-2xl border-2 border-yellow-400 bg-zinc-950/80 flex items-center justify-center shadow-xl cursor-pointer transition transform hover:scale-105 active:scale-95 group relative overflow-hidden"
+                      className="w-20 h-20 rounded-2xl border-2 border-yellow-400 bg-zinc-950/80 flex items-center justify-center shadow-xl cursor-pointer transition transform hover:scale-105 active:scale-95 group relative overflow-hidden"
                       title="點擊更換職業"
                     >
-                      <HeroPixelPreview jobId={gameState.selectedJobId || 'warrior'} size={56} className="border-0 bg-transparent shadow-none" />
+                      <HeroPixelPreview jobId={gameState.selectedJobId || 'warrior'} size={72} className="border-0 bg-transparent shadow-none" />
                       <span className="absolute -inset-0.5 bg-yellow-400/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-300 pointer-events-none" />
                       {/* Interactive indicator overlay */}
-                      <span className="absolute bottom-0 inset-x-0 bg-slate-950/90 text-[8px] text-yellow-300 font-bold py-0.5 text-center rounded-b-none scale-0 group-hover:scale-100 transition-transform origin-bottom">
+                      <span className="absolute bottom-0 inset-x-0 bg-slate-950/90 text-[10px] text-yellow-300 font-bold py-0.5 text-center rounded-b-none scale-0 group-hover:scale-100 transition-transform origin-bottom">
                         更換職業
                       </span>
                     </button>
-                    <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black shadow border border-slate-950 pointer-events-none">
+                    <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-slate-950 px-2 py-0.5 rounded-full text-xs font-black shadow border border-slate-950 pointer-events-none">
                       LV {Math.floor(gameState.totalXP / 100) + 1}
                     </div>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400 truncate">
+                      <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400 truncate">
                         勇士 {gameState.heroName}
                       </h1>
                       <button 
@@ -1523,20 +1523,20 @@ export default function App() {
                         onClick={() => { setTempHeroName(gameState.heroName); setShowRenameModal(true); }}
                         className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition border border-slate-850 cursor-pointer"
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={16} />
                       </button>
                     </div>
                     {/* Clickable Job Badge */}
                     <div className="mt-1 flex items-center gap-1.5">
                       <button
                         onClick={() => setShowJobSelectorModal(true)}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/50 hover:border-indigo-500 text-indigo-300 hover:text-indigo-200 text-xs font-black rounded-full shadow-inner transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/50 hover:border-indigo-500 text-indigo-300 hover:text-indigo-200 text-sm font-black rounded-full shadow-inner transition cursor-pointer"
                       >
                         <span>{currentJob.emoji} {currentJob.name}</span>
-                        <span className="text-[10px] text-indigo-400 opacity-80">(點擊更換)</span>
+                        <span className="text-[11px] text-indigo-400 opacity-80">(點擊更換)</span>
                       </button>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                    <p className="text-sm text-slate-400 mt-1 line-clamp-1">
                       《Jovan's Endless Quest》無限學術之塔
                     </p>
                   </div>
@@ -1544,17 +1544,17 @@ export default function App() {
 
                 {/* RPG Style Stats Grid */}
                 <div className="grid grid-cols-3 gap-2.5 z-10 mt-1">
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2 text-center">
-                    <div className="text-[10px] text-slate-400 font-semibold mb-0.5">目前層數</div>
-                    <div className="text-sm font-bold text-indigo-400">第 {gameState.currentFloor} 層</div>
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
+                    <div className="text-xs text-slate-400 font-semibold mb-1">目前層數</div>
+                    <div className="text-base font-black text-indigo-400">第 {gameState.currentFloor} 層</div>
                   </div>
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2 text-center">
-                    <div className="text-[10px] text-slate-400 font-semibold mb-0.5">累計 XP</div>
-                    <div className="text-sm font-bold text-emerald-400">{gameState.totalXP}</div>
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
+                    <div className="text-xs text-slate-400 font-semibold mb-1">累計 XP</div>
+                    <div className="text-base font-black text-emerald-400">{gameState.totalXP}</div>
                   </div>
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2 text-center">
-                    <div className="text-[10px] text-slate-400 font-semibold mb-0.5">金幣</div>
-                    <div className="text-sm font-bold text-amber-400">{gameState.goldCoins} 🟡</div>
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
+                    <div className="text-xs text-slate-400 font-semibold mb-1">金幣</div>
+                    <div className="text-base font-black text-amber-400">{gameState.goldCoins} 🟡</div>
                   </div>
                 </div>
 
@@ -1563,14 +1563,14 @@ export default function App() {
                   <button
                     id="enter-spire-cta"
                     onClick={handleEnterSpire}
-                    className="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black text-lg rounded-xl flex items-center justify-center gap-2 transition transform hover:scale-[1.02] active:scale-95 shadow-[0_5px_15px_rgba(245,158,11,0.25)] border-b-4 border-amber-700 cursor-pointer"
+                    className="w-full py-4.5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black text-xl rounded-xl flex items-center justify-center gap-2 transition transform hover:scale-[1.02] active:scale-95 shadow-[0_5px_15px_rgba(245,158,11,0.25)] border-b-4 border-amber-700 cursor-pointer"
                   >
-                    <Sword size={20} className="animate-pulse" />
+                    <Sword size={24} className="animate-pulse" />
                     <span>［ 進入無限之塔 ］</span>
                   </button>
 
                   {/* Floor Selector inside Hero Card replaced with display-only text */}
-                  <div className="text-center text-[10px] sm:text-[11px] text-yellow-300/85 font-mono tracking-wider animate-pulse font-bold mt-1 bg-slate-900/50 p-2.5 rounded-xl border border-slate-850">
+                  <div className="text-center text-xs sm:text-sm text-yellow-300/85 font-mono tracking-wider animate-pulse font-bold mt-1 bg-slate-900/50 p-3 rounded-xl border border-slate-850">
                     👑 歷史最高挑戰記錄：第 {gameState.maxFloorReached} 層 • 目前蓄勢攀登：第 {gameState.currentFloor} 層
                   </div>
                 </div>
@@ -1578,7 +1578,7 @@ export default function App() {
               </div>
 
               {/* Equipped Pet & Companion Panel (compacted) */}
-              <div className="w-full bg-slate-950/80 border-2 border-amber-500/30 rounded-2xl p-4 shadow-xl flex flex-col gap-3 relative overflow-hidden">
+              <div className="w-full bg-slate-950/80 border-2 border-amber-500/30 rounded-2xl p-5 shadow-xl flex flex-col gap-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none" />
                 
                 <div className="flex items-start gap-3">
@@ -1587,17 +1587,17 @@ export default function App() {
                     if (!pet) return null;
                     return (
                       <>
-                        <div className="w-12 h-12 flex-shrink-0 rounded-xl border-2 border-amber-400 bg-amber-950/40 flex items-center justify-center text-3xl shadow-lg relative animate-pulse">
+                        <div className="w-14 h-14 flex-shrink-0 rounded-xl border-2 border-amber-400 bg-amber-950/40 flex items-center justify-center text-3xl shadow-lg relative animate-pulse">
                           {pet.emoji}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h4 className="text-sm font-bold text-amber-400">{pet.name}</h4>
-                            <span className="text-[9px] bg-amber-950/80 text-amber-300 px-1.5 py-0.2 rounded-full border border-amber-800 font-bold uppercase tracking-wider">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-base font-black text-amber-400">{pet.name}</h4>
+                            <span className="text-xs bg-amber-950/80 text-amber-300 px-2 py-0.5 rounded-full border border-amber-800 font-bold uppercase tracking-wider">
                               {getElementChineseName(pet.element)}魔寵
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                          <p className="text-xs sm:text-sm text-slate-300 mt-1.5 leading-relaxed">
                             <span className="font-bold text-amber-500">技能：【{pet.skillName}】</span> — {pet.skillDescription}
                           </p>
                         </div>
@@ -1605,15 +1605,15 @@ export default function App() {
                     );
                   })() : (
                     <>
-                      <div className="w-12 h-12 flex-shrink-0 rounded-xl border-2 border-zinc-700 bg-zinc-900 flex items-center justify-center text-2xl shadow-md">
+                      <div className="w-14 h-14 flex-shrink-0 rounded-xl border-2 border-zinc-700 bg-zinc-900 flex items-center justify-center text-3xl shadow-md">
                         🐾
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-bold text-zinc-400">尚未裝備魔寵伴侶</h4>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+                        <h4 className="text-sm font-black text-zinc-400">尚未裝備魔寵伴侶</h4>
+                        <p className="text-xs sm:text-sm text-slate-400 mt-1 leading-snug">
                           攜帶魔寵可提供被動能力加成，或在戰鬥中施放主動大招！
                         </p>
-                        <p className="text-[9px] text-slate-500 mt-1 italic">
+                        <p className="text-xs text-slate-500 mt-1.5 italic font-medium">
                           💡 遇見魔寵時，連續答對 5 題即可捕捉！
                         </p>
                       </div>
@@ -1626,10 +1626,10 @@ export default function App() {
                     RetroSFX.playClick();
                     setShowPetSelectorModal(true);
                   }}
-                  className="w-full py-2 bg-amber-950/50 hover:bg-amber-900 border border-amber-500/50 text-amber-300 font-extrabold text-xs rounded-lg transition active:scale-95 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-3 bg-amber-950/50 hover:bg-amber-900 border border-amber-500/50 text-amber-300 font-black text-sm rounded-xl transition active:scale-95 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <span>🎒 進入魔寵收集庫 </span>
-                  <span className="text-[10px] bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded font-bold">
+                  <span className="text-xs bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-black">
                     {gameState.capturedPetIds.length} 隻
                   </span>
                 </button>
@@ -1642,7 +1642,7 @@ export default function App() {
                     setDevPassword("");
                     setShowDevPanel(true);
                   }}
-                  className="w-full mt-1.5 py-1.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white font-bold text-[10px] rounded-lg transition active:scale-95 shadow-sm flex items-center justify-center gap-1 cursor-pointer"
+                  className="w-full mt-1 py-1.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white font-bold text-xs rounded-lg transition active:scale-95 shadow-sm flex items-center justify-center gap-1 cursor-pointer"
                 >
                   🛠️ {isDevModeUnlocked ? "開啟開發者測試控制台 (已解鎖)" : "開發者測試模式"}
                 </button>
@@ -1651,21 +1651,21 @@ export default function App() {
             </div>
 
             {/* Right Column: 7-Day Log & Leaderboard */}
-            <div className="lg:col-span-7 flex flex-col gap-4">
+            <div className="lg:col-span-7 flex flex-col gap-4 sm:gap-6">
               
               {/* 7-Day Log Card */}
               <div className="bg-slate-950/85 border-2 border-indigo-950 rounded-2xl p-5 flex flex-col shadow-lg">
                 <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
-                  <h3 className="text-base font-bold text-slate-200 flex items-center gap-1.5">
-                    <Calendar size={18} className="text-emerald-400" />
+                  <h3 className="text-lg font-black text-slate-200 flex items-center gap-1.5">
+                    <Calendar size={20} className="text-emerald-400" />
                     7天學習日誌
                   </h3>
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1 bg-slate-900 px-2.5 py-0.5 rounded-full border border-slate-800">
-                    <Clock size={10} /> 即時記錄
+                  <span className="text-xs text-slate-400 flex items-center gap-1 bg-slate-900 px-2.5 py-0.5 rounded-full border border-slate-800 font-medium">
+                    <Clock size={12} /> 即時記錄
                   </span>
                 </div>
 
-                <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-400 mb-4 leading-relaxed font-medium">
                   你最近一週每日冒險所得 XP 紀錄。擊敗怪獸或完成挑戰便能累積在此！
                 </p>
                 
@@ -1684,10 +1684,10 @@ export default function App() {
                               : 'bg-slate-900/40 border-slate-800/60'
                         }`}
                       >
-                        <span className="text-[9px] text-slate-500 font-semibold">{day.displayDate}</span>
-                        <span className="text-[10px] font-bold text-slate-300 mt-0.5">{day.weekday}</span>
+                        <span className="text-xs text-slate-500 font-semibold">{day.displayDate}</span>
+                        <span className="text-xs sm:text-sm font-black text-slate-300 mt-0.5">{day.weekday}</span>
                         
-                        <div className="my-1.5 text-lg">
+                        <div className="my-1.5 text-xl">
                           {hasXP ? (
                             <motion.span 
                               animate={{ scale: [1, 1.2, 1] }} 
@@ -1697,11 +1697,11 @@ export default function App() {
                               ⭐
                             </motion.span>
                           ) : (
-                            <span className="opacity-10 text-[13px]">🛡️</span>
+                            <span className="opacity-10 text-[14px]">🛡️</span>
                           )}
                         </div>
                         
-                        <span className={`text-[9px] font-extrabold ${hasXP ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        <span className={`text-xs sm:text-sm font-black ${hasXP ? 'text-emerald-400' : 'text-slate-500'}`}>
                           {hasXP ? `+${day.xp}` : '0'}
                         </span>
                       </div>
@@ -1709,9 +1709,9 @@ export default function App() {
                   })}
                 </div>
                 
-                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-850 mt-3.5 flex items-center justify-between shadow-inner">
-                  <span className="text-xs text-slate-300 font-medium">過去 7 天累計學習點數 (XP)：</span>
-                  <span className="text-sm font-extrabold text-emerald-400 flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
+                <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-850 mt-3.5 flex items-center justify-between shadow-inner">
+                  <span className="text-xs sm:text-sm text-slate-300 font-bold">過去 7 天累計學習點數 (XP)：</span>
+                  <span className="text-sm sm:text-base font-black text-emerald-400 flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
                     +{currentWeeklyXP} XP ⭐
                   </span>
                 </div>
@@ -1720,8 +1720,8 @@ export default function App() {
               {/* Global Leaderboard Card */}
               <div className="bg-slate-950/85 border-2 border-indigo-950 rounded-2xl p-5 flex flex-col shadow-lg">
                 <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
-                  <h3 className="text-base font-bold text-slate-200 flex items-center gap-1.5">
-                    <Trophy size={18} className="text-yellow-400" />
+                  <h3 className="text-lg font-black text-slate-200 flex items-center gap-1.5">
+                    <Trophy size={20} className="text-yellow-400" />
                     無限之塔勇士榜 🏆
                   </h3>
                   <button 
@@ -1729,23 +1729,23 @@ export default function App() {
                     onClick={fetchLeaderboard}
                     className="p-1 hover:bg-slate-850 bg-slate-900 border border-slate-800 rounded text-slate-400 transition cursor-pointer"
                   >
-                    <RefreshCw size={12} className={isLeaderboardLoading ? "animate-spin" : ""} />
+                    <RefreshCw size={14} className={isLeaderboardLoading ? "animate-spin" : ""} />
                   </button>
                 </div>
 
-                <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-400 mb-3 leading-relaxed font-medium">
                   本排名榜按 7天累積XP 進行排序。擊敗學術怪獸爭取更高的無上榮耀！
                 </p>
 
                 {isLeaderboardLoading ? (
                   <div className="flex-1 flex flex-col items-center justify-center py-6">
-                    <RefreshCw size={20} className="animate-spin text-indigo-400 mb-1.5" />
-                    <span className="text-[10px] text-slate-400">正在同步雲端數據中...</span>
+                    <RefreshCw size={24} className="animate-spin text-indigo-400 mb-1.5" />
+                    <span className="text-xs text-slate-400">正在同步雲端數據中...</span>
                   </div>
                 ) : (
-                  <div className="overflow-y-auto space-y-1.5 pr-0.5 max-h-[210px] scrollbar-thin scrollbar-thumb-slate-800">
+                  <div className="overflow-y-auto space-y-1.5 pr-0.5 max-h-[240px] scrollbar-thin scrollbar-thumb-slate-800">
                     {leaderboard.length === 0 ? (
-                      <div className="text-center py-8 text-slate-500 text-xs italic">
+                      <div className="text-center py-8 text-slate-500 text-sm italic">
                         暫無資料。開始爬塔來登錄勇士榜吧！
                       </div>
                     ) : (
@@ -1756,33 +1756,33 @@ export default function App() {
                         return (
                           <div 
                             key={entry.name + idx} 
-                            className={`p-2 rounded-lg border flex items-center justify-between text-xs transition duration-150 ${
+                            className={`p-2.5 rounded-lg border flex items-center justify-between text-xs transition duration-150 ${
                               isMe 
                                 ? 'bg-indigo-950/50 border-indigo-500/70 shadow-[0_0_10px_rgba(99,102,241,0.2)]' 
                                 : 'bg-slate-900/50 border-slate-850 hover:border-slate-800'
                             }`}
                           >
                             <div className="flex items-center gap-2">
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-extrabold font-mono text-[10px] ${idx < 3 ? rankColors[idx] : 'bg-slate-800 text-slate-400'}`}>
+                              <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold font-mono text-xs ${idx < 3 ? rankColors[idx] : 'bg-slate-800 text-slate-400'}`}>
                                 {idx + 1}
                               </span>
                               
                               <div>
-                                <div className="font-bold text-slate-100 flex items-center gap-1">
-                                  <span className="text-xs">{entry.name}</span>
-                                  {isMe && <span className="text-[8px] bg-indigo-500 text-white px-1 py-0.1 rounded font-semibold">你</span>}
+                                <div className="font-extrabold text-slate-100 flex items-center gap-1.5">
+                                  <span className="text-sm">{entry.name}</span>
+                                  {isMe && <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.2 rounded font-black">你</span>}
                                 </div>
-                                <div className="text-[9px] text-slate-500">
+                                <div className="text-xs text-slate-400 mt-0.5">
                                   總 XP: {entry.xp} | 最高: 第 {entry.maxFloorReached} 層
                                 </div>
                               </div>
                             </div>
 
                             <div className="text-right">
-                              <div className="font-extrabold text-emerald-400 text-xs">
+                              <div className="font-black text-emerald-400 text-sm">
                                 {entry.weeklyXP} XP
                               </div>
-                              <div className="text-[8px] text-slate-500 uppercase font-bold">7天累積</div>
+                              <div className="text-[10px] text-slate-500 uppercase font-black">7天累積</div>
                             </div>
                           </div>
                         );
@@ -1799,12 +1799,12 @@ export default function App() {
         </main>
       ) : (
         /* 3. GAMEPLAY IMMERSIVE FOCUS VIEW (Zero logs/leaderboard distraction) */
-        <main className="flex-1 w-full max-w-7xl mx-auto p-4 flex flex-col gap-4 animate-fade-in">
+        <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 md:p-8 md:py-12 flex flex-col gap-4 sm:gap-6 md:gap-8 animate-fade-in justify-center">
           
-          <div className={`w-full ${isLogExpanded ? 'grid grid-cols-1 lg:grid-cols-12' : 'flex flex-col w-full'} gap-5 items-start`}>
+          <div className={`w-full ${isLogExpanded ? 'grid grid-cols-1 lg:grid-cols-12' : 'flex flex-col w-full'} gap-6 md:gap-8 items-start`}>
             
             {/* Phaser Viewport and HP HUD */}
-            <section className={`${isLogExpanded ? 'lg:col-span-8' : 'w-full'} flex flex-col gap-4 transition-all duration-300`}>
+            <section className={`${isLogExpanded ? 'lg:col-span-8' : 'w-full'} flex flex-col gap-4 sm:gap-6 transition-all duration-300`}>
               
               <div className="w-full relative">
                 {gameState.hp <= 0 ? (
@@ -2142,76 +2142,76 @@ export default function App() {
                 </div>
 
                 {/* JRPG Tactical Battle Status HUD */}
-                <div className="mb-2 bg-zinc-950 p-2 border-2 border-zinc-850 rounded-lg text-left max-w-md mx-auto grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] font-mono select-none">
+                <div className="mb-3 bg-zinc-950 p-3 sm:p-4 border-2 border-zinc-850 rounded-xl text-left max-w-lg mx-auto grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm font-sans select-none">
                   {/* Left: Player & HP */}
-                  <div className="border-r border-zinc-800 pr-2">
-                    <div className="flex justify-between items-center mb-0.5">
-                      <span className="text-yellow-400 font-black">👤 {gameState.heroName || "Jovan"}</span>
-                      <span className="text-[8px] bg-indigo-950 text-indigo-300 px-1 py-0.2 rounded border border-indigo-800/60">LV {Math.floor(gameState.totalXP / 100) + 1}</span>
+                  <div className="border-r border-zinc-800 pr-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-yellow-400 font-black text-sm">👤 {gameState.heroName || "Jovan"}</span>
+                      <span className="text-[10px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800/60 font-bold">LV {Math.floor(gameState.totalXP / 100) + 1}</span>
                     </div>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-rose-400 font-bold">HP:</span>
+                    <div className="flex items-center gap-1 flex-wrap mt-1">
+                      <span className="text-rose-400 font-black text-xs sm:text-sm">HP:</span>
                       <span className="tracking-tighter">
                         {Array.from({ length: effectiveMaxHp }).map((_, idx) => (
-                          <span key={idx} className="text-[10px] sm:text-[11px]">
+                          <span key={idx} className="text-xs sm:text-sm md:text-base">
                             {idx < gameState.hp ? '❤️' : '🖤'}
                           </span>
                         ))}
                       </span>
-                      <span className="text-[9px] text-zinc-400 ml-auto font-bold">({gameState.hp}/{effectiveMaxHp})</span>
+                      <span className="text-xs text-zinc-400 ml-auto font-bold">({gameState.hp}/{effectiveMaxHp})</span>
                     </div>
                   </div>
 
                   {/* Right: Selected Job Talent & Live Buff Status */}
-                  <div className="pl-1 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="text-cyan-400 font-bold flex items-center gap-1">
+                  <div className="pl-2 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-cyan-400 font-black flex items-center gap-1 text-xs sm:text-sm">
                         <span>{currentJob.emoji}</span>
                         <span>{currentJob.name}</span>
                       </span>
-                      <span className="text-[8px] text-zinc-500 font-bold">特技</span>
+                      <span className="text-[10px] text-zinc-500 font-black">特技</span>
                     </div>
                     
-                    <div className="text-[9px] sm:text-[10px] flex items-center justify-between mt-0.5">
+                    <div className="text-xs sm:text-sm flex items-center justify-between mt-1">
                       {gameState.selectedJobId === 'warrior' ? (
                         <>
-                          <span className="text-zinc-400 font-bold">🛡️ 盾牌防護:</span>
-                          <span className={warriorShield ? "text-emerald-400 font-black animate-pulse font-mono" : "text-rose-500 line-through font-bold font-mono"}>
-                            {warriorShield ? "🟢 已開啟" : "🔴 已消耗"}
+                          <span className="text-zinc-400 font-bold">🛡️ 防護:</span>
+                          <span className={warriorShield ? "text-emerald-400 font-black animate-pulse font-mono text-xs sm:text-sm" : "text-rose-500 line-through font-bold font-mono text-xs sm:text-sm"}>
+                            {warriorShield ? "🟢 有" : "🔴 無"}
                           </span>
                         </>
                       ) : gameState.selectedJobId === 'mage' ? (
                         <>
-                          <span className="text-zinc-400 font-bold">🔮 時空傳送:</span>
-                          <span className={hasMageTeleportUsed ? "text-rose-500 line-through font-bold font-mono" : "text-emerald-400 font-black font-mono"}>
-                            {hasMageTeleportUsed ? "🔴 已使用" : "🟢 蓄勢待發"}
+                          <span className="text-zinc-400 font-bold">🔮 傳送:</span>
+                          <span className={hasMageTeleportUsed ? "text-rose-500 line-through font-bold font-mono text-xs sm:text-sm" : "text-emerald-400 font-black font-mono text-xs sm:text-sm"}>
+                            {hasMageTeleportUsed ? "🔴 完" : "🟢 可"}
                           </span>
                         </>
                       ) : gameState.selectedJobId === 'samurai' ? (
                         <>
-                          <span className="text-zinc-400 font-bold">👤 心眼看破:</span>
-                          <span className={gameState.hp === 1 ? "text-amber-400 font-black animate-pulse font-mono" : "text-zinc-500 font-bold font-mono"}>
-                            {gameState.hp === 1 ? "🔥 已觸發 (三選一)" : "🔒 HP=1時發動"}
+                          <span className="text-zinc-400 font-bold">👤 看破:</span>
+                          <span className={gameState.hp === 1 ? "text-amber-400 font-black animate-pulse font-mono text-xs sm:text-sm" : "text-zinc-500 font-bold font-mono text-xs sm:text-sm"}>
+                            {gameState.hp === 1 ? "🔥 開" : "🔒 關"}
                           </span>
                         </>
                       ) : gameState.selectedJobId === 'archer' ? (
                         <>
-                          <span className="text-zinc-400 font-bold">🏹 自動解答:</span>
-                          <span className={hasArcherAutoSolveUsed ? "text-rose-500 line-through font-bold font-mono" : "text-emerald-400 font-black font-mono"}>
-                            {hasArcherAutoSolveUsed ? "🔴 已使用" : "🟢 可使用"}
+                          <span className="text-zinc-400 font-bold">🏹 自動:</span>
+                          <span className={hasArcherAutoSolveUsed ? "text-rose-500 line-through font-bold font-mono text-xs sm:text-sm" : "text-emerald-400 font-black font-mono text-xs sm:text-sm"}>
+                            {hasArcherAutoSolveUsed ? "🔴 完" : "🟢 可"}
                           </span>
                         </>
                       ) : gameState.selectedJobId === 'warlock' ? (
                         <>
-                          <span className="text-zinc-400 font-bold">🔮 魂魄吸收:</span>
-                          <span className="text-indigo-400 font-bold font-mono">
-                            連擊 {warlockCombo} / 3 ⚡
+                          <span className="text-zinc-400 font-bold">🔮 魂魄:</span>
+                          <span className="text-indigo-400 font-black font-mono text-xs sm:text-sm">
+                            連擊 {warlockCombo}/3 ⚡
                           </span>
                         </>
                       ) : (
                         <>
                           <span className="text-zinc-400 font-bold">✨ {currentJob.skillName}:</span>
-                          <span className="text-emerald-400 font-bold font-mono">🟢 常駐生效</span>
+                          <span className="text-emerald-400 font-black font-mono text-xs sm:text-sm">🟢 生效</span>
                         </>
                       )}
                     </div>
@@ -2552,7 +2552,7 @@ export default function App() {
                   /* Standard 4-Option Multiple Choice Grid */
                   <>
                     {/* Prompt Instruction */}
-                    <p className="text-zinc-400 text-[10px] mb-1.5 text-center font-bold tracking-wider">
+                    <p className="text-zinc-300 text-xs sm:text-sm mb-2 text-center font-black tracking-wider">
                       👉 選擇防禦指令以反擊：
                     </p>
 
@@ -2569,7 +2569,7 @@ export default function App() {
                             id={`option-btn-${idx}`}
                             onClick={() => handleAnswerSubmit(opt)}
                             disabled={isFeedbackShowing || !!flashingOption}
-                            className={`py-1.5 px-2.5 sm:py-2.5 sm:px-3 text-left font-sans font-black transition-all duration-75 border-2 border-white rounded-xl flex flex-row items-center justify-between gap-3 active:scale-95 shadow-[0_1.5px_0_#fff] ${
+                            className={`py-2.5 px-3.5 sm:py-3.5 sm:px-4 text-left font-sans font-black transition-all duration-75 border-2 border-white rounded-xl flex flex-row items-center justify-between gap-3 active:scale-95 shadow-[0_2px_0_#fff] ${
                               isFlashing 
                                 ? 'animate-rpg-flash' 
                                 : isSelected 
@@ -2577,23 +2577,23 @@ export default function App() {
                                   : 'bg-black text-white hover:bg-white hover:text-black cursor-pointer'
                             }`}
                           >
-                            <span className="flex items-center gap-2 sm:gap-3 w-full justify-start text-left">
+                            <span className="flex items-center gap-2 sm:gap-3.5 w-full justify-start text-left">
                               <span 
-                                className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 border border-white/40 shadow-sm transition-transform duration-100"
+                                className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 border border-white/40 shadow-sm transition-transform duration-100"
                                 style={{ 
                                   backgroundColor: idx === 0 ? '#b91c1c' : idx === 1 ? '#1d4ed8' : idx === 2 ? '#6b21a8' : '#9a3412'
                                 }}
                               >
-                                <span className="text-sm sm:text-lg select-none">
+                                <span className="text-sm sm:text-xl select-none">
                                   {idx === 0 && "⚔️"}
                                   {idx === 1 && "🛡️"}
                                   {idx === 2 && "🔮"}
                                   {idx === 3 && "🏃"}
                                 </span>
                               </span>
-                              <span className="leading-tight break-words text-xs sm:text-sm md:text-base font-bold tracking-wide">{opt}</span>
+                              <span className="leading-tight break-words text-sm sm:text-base md:text-lg font-black tracking-wide">{opt}</span>
                             </span>
-                            <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 uppercase tracking-wider whitespace-nowrap ${
+                            <span className={`text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-md border shrink-0 uppercase tracking-wider whitespace-nowrap ${
                               idx === 0 ? 'bg-red-950 text-red-400 border-red-800' :
                               idx === 1 ? 'bg-blue-950 text-blue-400 border-blue-800' :
                               idx === 2 ? 'bg-purple-950 text-purple-400 border-purple-800' :

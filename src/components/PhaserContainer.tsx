@@ -142,7 +142,7 @@ export default function PhaserContainer({ currentFloor, equippedPetId, selectedJ
       {/* Phaser Canvas Holder */}
       <div 
         id={containerId} 
-        className="w-full h-auto max-h-[280px] xs:max-h-[320px] sm:max-h-[340px] md:max-h-[360px] lg:max-h-[380px] xl:max-h-[440px] aspect-[16/10] bg-slate-950 rounded-lg overflow-hidden mx-auto"
+        className="w-full h-auto max-h-[320px] xs:max-h-[365px] sm:max-h-[420px] md:max-h-[460px] lg:max-h-[480px] xl:max-h-[560px] aspect-[16/10] bg-slate-950 rounded-lg overflow-hidden mx-auto"
         style={{ touchAction: 'none' }}
       />
     </div>
