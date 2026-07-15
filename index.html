@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Infinite Spire" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- Phaser 3 Game Engine CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    
+    <!-- Child-friendly Rounded Font (Fredoka) and Retro Pixel Font (Press Start 2P) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <title>Jovan's Endless Quest: The Infinite Spire</title>
+    
+    <style>
+      /* Prevent text selection, long-press context menus, and callouts on touch devices like iPad */
+      * {
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        -khtml-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        user-select: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+        outline: none !important;
+      }
+      
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background-color: #0f172a;
+        touch-action: none;
+      }
+
+      /* Landscape lock hints for standard mobile orientation if needed */
+      @media screen and (orientation: portrait) {
+        #landscape-helper {
+          display: flex !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- Landscape Orientation Warning Overlay for Phones/iPads held vertically -->
+    <div id="landscape-helper" style="display: none; position: fixed; inset: 0; background: #0f172a; color: white; flex-direction: column; align-items: center; justify-content: center; z-index: 99999; text-align: center; padding: 20px; font-family: 'Fredoka', sans-serif;">
+      <div style="font-size: 48px; margin-bottom: 20px;">🔄</div>
+      <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">請將螢幕轉為橫向遊玩</h2>
+      <p style="color: #94a3b8; font-size: 16px;">Please rotate your iPad/Device to landscape mode for Jovan's Endless Quest!</p>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

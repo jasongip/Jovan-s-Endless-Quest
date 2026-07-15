@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Press+Start+2P&family=VT323&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Fredoka", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "VT323", "Press Start 2P", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-press-start: "Press Start 2P", monospace;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate(-5px, -5px); }
+  20%, 40%, 60%, 80% { transform: translate(5px, 5px); }
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes rpg-flash {
+  0%, 100% { background-color: black; color: white; }
+  50% { background-color: white; color: black; }
+}
+
+.animate-rpg-flash {
+  animation: rpg-flash 0.1s ease-in-out 3;
+}
+

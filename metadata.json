@@ -1,0 +1,6 @@
+{
+  "name": "Jovan's Endless Quest: The Infinite Spire",
+  "description": "A 2D Roguelike strategy educational Spire climber for 6-year-old Jovan, combining math arithmetic and Chinese reading comprehension quizzes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
