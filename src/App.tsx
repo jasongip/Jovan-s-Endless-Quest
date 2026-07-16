@@ -147,6 +147,8 @@ export default function App() {
   // Leaderboard data
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
+  const [leaderboardTab, setLeaderboardTab] = useState<'weekly' | 'all-time'>('weekly');
+  const [allTimeSort, setAllTimeSort] = useState<'xp' | 'floor'>('xp');
   
   // Sound manager state
   const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -835,8 +837,8 @@ export default function App() {
     setHasMageTeleportUsed(true);
     pushLog("🔮 【時空傳送】法師施展了深奧的星界法術！一陣強烈的奧術藍光將眼前的魔物完全籠罩，瞬間將其傳送至虛空！避戰成功，不消耗生命值，亦不獲得金幣或 XP！🌌");
     
-    // Wipe monster sprite in Phaser
-    GameBridge.wipeAllMonsters();
+    // Wipe monster sprite in Phaser without giving rewards
+    GameBridge.wipeAllMonsters(true);
     
     // Clear the active quiz immediately
     setActiveQuiz(null);
@@ -865,8 +867,8 @@ export default function App() {
   };
 
   const handleSelectJob = (jobId: string) => {
-    if (isPlaying) {
-      pushLog("⚠️ 冒險進行中，無法進行轉職！請先返回大廳或結束本局。");
+    if (isPlaying || gameState.currentFloor > 1) {
+      pushLog(`⚠️ 冒險進行中（當前：第 ${gameState.currentFloor} 層），無法進行轉職！請繼續挑戰直至玩家戰敗結束後，方可在大廳重新選擇職業。`);
       return;
     }
     const job = getJobById(jobId);
@@ -875,13 +877,25 @@ export default function App() {
       pushLog(`🔒 職業【${job.name}】尚未解鎖！需要累計達 ${job.unlockXP} XP。目前：${gameState.totalXP} XP。`);
       return;
     }
-    setGameState(prev => ({
-      ...prev,
-      selectedJobId: jobId
-    }));
+    setGameState(prev => {
+      const isDwarf = jobId === 'dwarf';
+      const effMax = (prev.maxHp || 5) + (isDwarf ? 2 : 0);
+      return {
+        ...prev,
+        selectedJobId: jobId,
+        hp: effMax
+      };
+    });
     pushLog(`👑 成功轉職為職業：【${job.emoji} ${job.name}】！`);
     setShowJobSelectorModal(false);
     RetroSFX.playShop();
+
+    // Set initial skill states on switching job at Floor 1
+    setWarriorShield(jobId === 'warrior');
+    setHasMageTeleportUsed(false);
+    setHasArcherAutoSolveUsed(false);
+    setWarlockCombo(0);
+    setSamuraiExcludedOption(null);
   };
 
   const incrementWarlockCombo = () => {
@@ -889,15 +903,19 @@ export default function App() {
     setWarlockCombo(prev => {
       const nextCombo = prev + 1;
       if (nextCombo === 3) {
-        setGameState(pState => {
-          const heals = Math.min((pState.maxHp || 5) + (pState.selectedJobId === 'dwarf' ? 2 : 0), pState.hp + 1);
-          if (heals > pState.hp) {
-            pushLog(`🔮 【靈魂抽取】黑魔導士達成 3 連擊！吸取怪獸靈魂能量，成功回復了 1 點 HP！💚`);
-          } else {
-            pushLog(`🔮 【靈魂抽取】黑魔導士達成 3 連擊！吸取了怪獸靈魂（生命值已滿）。`);
-          }
-          return { ...pState, hp: heals };
-        });
+        setTimeout(() => {
+          setGameState(pState => {
+            const isDwarf = pState.selectedJobId === 'dwarf';
+            const effMax = (pState.maxHp || 5) + (isDwarf ? 2 : 0);
+            const heals = Math.min(effMax, pState.hp + 1);
+            if (heals > pState.hp) {
+              pushLog(`🔮 【靈魂抽取】黑魔導士達成 3 連擊！吸取怪獸靈魂能量，成功回復了 1 點 HP！💚`);
+            } else {
+              pushLog(`🔮 【靈魂抽取】黑魔導士達成 3 連擊！吸取了怪獸靈魂（生命值已滿）。`);
+            }
+            return { ...pState, hp: heals };
+          });
+        }, 0);
         return 0;
       }
       return nextCombo;
@@ -1079,14 +1097,30 @@ export default function App() {
         }
 
         // Grant Rare Loot 💎
-        const bonusXP = 10 + Math.floor(Math.random() * 6); // 10 to 15 XP
-        const bonusGold = 50;
+        let bonusXP = 10 + Math.floor(Math.random() * 6); // 10 to 15 XP
+        let bonusGold = 50;
+
+        const isSage = gameState.selectedJobId === 'sage';
+        const sageTriggered = isSage && Math.random() < 0.50; // 50% chance for Sage!
+
+        if (sageTriggered) {
+          bonusXP *= 2;
+          bonusGold *= 2;
+          setTimeout(() => {
+            pushLog(`📜✨ 【真理之鑰】賢者的真理奧義觸發 (50% 機率)！擊敗 BOSS 獲得的 XP 與金幣全部翻倍！🤩`);
+          }, 50);
+        }
 
         setGameState(prev => {
+          const nextMaxHp = prev.maxHp + 1;
+          const isDwarf = prev.selectedJobId === 'dwarf';
+          const effectiveMax = nextMaxHp + (isDwarf ? 2 : 0);
           const withLoot = {
             ...prev,
             goldCoins: prev.goldCoins + bonusGold,
-            dFactorSlope: nextSlope
+            dFactorSlope: nextSlope,
+            maxHp: nextMaxHp,
+            hp: Math.min(effectiveMax, prev.hp + 1) // Heal 1 heart as well!
           };
           return awardXP(withLoot, bonusXP);
         });
@@ -1095,7 +1129,9 @@ export default function App() {
         setRareLootReward({
           xp: bonusXP,
           gold: bonusGold,
-          slopeChange: slopeChangeMsg
+          slopeChange: sageTriggered 
+            ? `📜✨ 【真理之鑰】奧義翻倍生效！\n${slopeChangeMsg}` 
+            : slopeChangeMsg
         });
         setShowRareLootCelebration(true);
 
@@ -1207,7 +1243,6 @@ export default function App() {
               GameBridge.resolveCombat(false, true);
               setIsElite(false);
             } else {
-              setGameState(prev => ({ ...prev, hp: Math.max(0, prev.hp - 1) }));
               GameBridge.resolveCombat(false, true);
               setIsElite(false);
             }
@@ -1234,7 +1269,6 @@ export default function App() {
               pushLog(`🛡️ 【盾牌防護】劍士盾牌防護發動！消耗一次性護盾抵擋了防禦失誤！HP 沒有減少！❤️`);
               GameBridge.resolveCombat(false, true);
             } else {
-              setGameState(prev => ({ ...prev, hp: Math.max(0, prev.hp - 1) }));
               GameBridge.resolveCombat(false, true);
             }
           }
@@ -1350,6 +1384,13 @@ export default function App() {
     usedQuestionIdsRef.current = []; // Reset used questions list for a brand new run!
     setIsPetSkillUsedThisFloor(false);
     pendingBossLimitBreakDamageRef.current = 0;
+
+    // Reset job abilities on death
+    setWarriorShield(gameState.selectedJobId === 'warrior');
+    setHasMageTeleportUsed(false);
+    setHasArcherAutoSolveUsed(false);
+    setWarlockCombo(0);
+    setSamuraiExcludedOption(null);
   };
 
   const handleEnterSpire = () => {
@@ -1358,15 +1399,31 @@ export default function App() {
     setIsPetSkillUsedThisFloor(false);
     pendingBossLimitBreakDamageRef.current = 0;
 
-    // Initialize/Refresh job abilities for the spire run
-    setWarriorShield(gameState.selectedJobId === 'warrior');
-    setHasMageTeleportUsed(false);
-    setHasArcherAutoSolveUsed(false);
-    setWarlockCombo(0);
-    setSamuraiExcludedOption(null);
+    // Only reset/heal if starting a brand-new run on Floor 1
+    if (gameState.currentFloor === 1) {
+      setWarriorShield(gameState.selectedJobId === 'warrior');
+      setHasMageTeleportUsed(false);
+      setHasArcherAutoSolveUsed(false);
+      setWarlockCombo(0);
+      setSamuraiExcludedOption(null);
 
-    const job = getJobById(gameState.selectedJobId || 'warrior') || JOBS[0];
-    pushLog(`🏰 進入無限之塔！你當前扮演的職業是：【${job.emoji} ${job.name}】（招式：${job.skillName}）。祝你冒險順利！`);
+      // Heal to full HP (including any dwarf or max HP upgrades) when starting a new run
+      setGameState(prev => {
+        const isDwarf = prev.selectedJobId === 'dwarf';
+        const effMax = (prev.maxHp || 5) + (isDwarf ? 2 : 0);
+        return {
+          ...prev,
+          hp: effMax
+        };
+      });
+
+      const job = getJobById(gameState.selectedJobId || 'warrior') || JOBS[0];
+      pushLog(`🏰 進入無限之塔！你當前扮演的職業是：【${job.emoji} ${job.name}】（招式：${job.skillName}）。祝你冒險順利！`);
+    } else {
+      // Resuming an active run
+      const job = getJobById(gameState.selectedJobId || 'warrior') || JOBS[0];
+      pushLog(`🏰 重新回到無限之塔第 ${gameState.currentFloor} 層！保留你先前的生命值（${gameState.hp}/${effectiveMaxHp}）與技能狀態。繼續你的冒險！`);
+    }
   };
 
   const handleUpdateNameSubmit = () => {
@@ -1423,12 +1480,9 @@ export default function App() {
         
         {/* Hero Identity Section */}
         <div className="flex items-center gap-3">
-          <div className="relative group cursor-pointer" onClick={() => { setTempHeroName(gameState.heroName); setShowRenameModal(true); }}>
-            <div className="w-12 h-12 rounded-full border-2 border-yellow-400 bg-indigo-600 flex items-center justify-center text-2xl font-bold shadow-lg transform hover:scale-110 transition duration-150">
-              🚶
-            </div>
-            <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-slate-950 p-1 rounded-full text-xs hover:bg-yellow-300">
-              <Edit3 size={12} />
+          <div className="relative">
+            <div className="w-12 h-12 rounded-xl border-2 border-yellow-400 bg-zinc-950 flex items-center justify-center overflow-hidden shadow-lg">
+              <HeroPixelPreview jobId={gameState.selectedJobId || 'warrior'} size={44} className="border-0 bg-transparent shadow-none" />
             </div>
           </div>
           <div>
@@ -1449,7 +1503,7 @@ export default function App() {
               />
             </div>
             <div className="text-[10px] text-slate-400 mt-0.5">
-              學習點數 (XP): {gameState.totalXP} / {nextLevelXP}
+              學習點數 (XP): {gameState.totalXP}
             </div>
           </div>
         </div>
@@ -1556,16 +1610,9 @@ export default function App() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400 truncate">
-                        勇士 {gameState.heroName}
+                      <h1 className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400 truncate">
+                        {gameState.heroName}
                       </h1>
-                      <button 
-                        id="edit-name-lobby"
-                        onClick={() => { setTempHeroName(gameState.heroName); setShowRenameModal(true); }}
-                        className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition border border-slate-850 cursor-pointer"
-                      >
-                        <Edit3 size={16} />
-                      </button>
                     </div>
                     {/* Clickable Job Badge */}
                     <div className="mt-1 flex items-center gap-1.5">
@@ -1691,148 +1738,245 @@ export default function App() {
 
             </div>
 
-            {/* Right Column: 7-Day Log & Leaderboard */}
+            {/* Right Column: Unified 7-Day Log & Leaderboard */}
             <div className="lg:col-span-7 flex flex-col gap-4 sm:gap-6">
               
-              {/* 7-Day Log Card */}
-              <div className="bg-slate-950/85 border-2 border-indigo-950 rounded-2xl p-5 flex flex-col shadow-lg">
-                <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
-                  <h3 className="text-lg font-black text-slate-200 flex items-center gap-1.5">
-                    <Calendar size={20} className="text-emerald-400" />
-                    7天學習日誌
-                  </h3>
-                  <span className="text-xs text-slate-400 flex items-center gap-1 bg-slate-900 px-2.5 py-0.5 rounded-full border border-slate-800 font-medium">
-                    <Clock size={12} /> 即時記錄
-                  </span>
+              {/* Unified Academic Log & Leaderboard Card */}
+              <div className="bg-slate-950/85 border-2 border-indigo-950 rounded-2xl p-5 flex flex-col shadow-lg gap-5">
+                
+                {/* Part 1: 7-Day learning log */}
+                <div>
+                  <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
+                    <h3 className="text-lg font-black text-slate-200 flex items-center gap-1.5">
+                      <Calendar size={20} className="text-emerald-400" />
+                      7天學習日誌
+                    </h3>
+                    <span className="text-xs text-slate-400 flex items-center gap-1 bg-slate-900 px-2.5 py-0.5 rounded-full border border-slate-800 font-medium">
+                      <Clock size={12} /> 即時記錄
+                    </span>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-slate-400 mb-4 leading-relaxed font-medium">
+                    你最近一週每日冒險所得 XP 紀錄。擊敗怪獸或完成挑戰便能累積在此！
+                  </p>
+                  
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {pastSevenDays.map((day, idx) => {
+                      const isToday = idx === 6;
+                      const hasXP = day.xp > 0;
+                      return (
+                        <div 
+                          key={day.date} 
+                          className={`flex flex-col items-center p-2 rounded-lg border transition duration-150 ${
+                            isToday 
+                              ? 'bg-indigo-950/40 border-indigo-500/60 ring-1 ring-indigo-500/30' 
+                              : hasXP 
+                                ? 'bg-emerald-950/20 border-emerald-800/40' 
+                                : 'bg-slate-900/40 border-slate-800/60'
+                          }`}
+                        >
+                          <span className="text-xs text-slate-500 font-semibold">{day.displayDate}</span>
+                          <span className="text-xs sm:text-sm font-black text-slate-300 mt-0.5">{day.weekday}</span>
+                          
+                          <div className="my-1.5 text-xl">
+                            {hasXP ? (
+                              <motion.span 
+                                animate={{ scale: [1, 1.2, 1] }} 
+                                transition={{ duration: 2, repeat: -1 }}
+                                className="inline-block"
+                              >
+                                ⭐
+                              </motion.span>
+                            ) : (
+                              <span className="opacity-10 text-[14px]">🛡️</span>
+                            )}
+                          </div>
+                          
+                          <span className={`text-xs sm:text-sm font-black ${hasXP ? 'text-emerald-400' : 'text-slate-500'}`}>
+                            {hasXP ? `+${day.xp}` : '0'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-850 mt-3.5 flex items-center justify-between shadow-inner">
+                    <span className="text-xs sm:text-sm text-slate-300 font-bold">過去 7 天累計學習點數 (XP)：</span>
+                    <span className="text-sm sm:text-base font-black text-emerald-400 flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
+                      +{currentWeeklyXP} XP ⭐
+                    </span>
+                  </div>
                 </div>
 
-                <p className="text-xs sm:text-sm text-slate-400 mb-4 leading-relaxed font-medium">
-                  你最近一週每日冒險所得 XP 紀錄。擊敗怪獸或完成挑戰便能累積在此！
-                </p>
-                
-                <div className="grid grid-cols-7 gap-1.5">
-                  {pastSevenDays.map((day, idx) => {
-                    const isToday = idx === 6;
-                    const hasXP = day.xp > 0;
-                    return (
-                      <div 
-                        key={day.date} 
-                        className={`flex flex-col items-center p-2 rounded-lg border transition duration-150 ${
-                          isToday 
-                            ? 'bg-indigo-950/40 border-indigo-500/60 ring-1 ring-indigo-500/30' 
-                            : hasXP 
-                              ? 'bg-emerald-950/20 border-emerald-800/40' 
-                              : 'bg-slate-900/40 border-slate-800/60'
+                {/* Horizontal divider */}
+                <div className="border-t-2 border-slate-800/60 my-1"></div>
+
+                {/* Part 2: Global Leaderboard */}
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h3 className="text-lg font-black text-slate-200 flex items-center gap-1.5">
+                      <Trophy size={20} className="text-yellow-400" />
+                      無限之塔勇士榜 🏆
+                    </h3>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Refresh button */}
+                      <button 
+                        id="refresh-leaderboard-lobby"
+                        onClick={fetchLeaderboard}
+                        className="p-1.5 hover:bg-slate-850 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 transition cursor-pointer"
+                        title="重新整理"
+                      >
+                        <RefreshCw size={14} className={isLeaderboardLoading ? "animate-spin" : ""} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabs and Sorters */}
+                  <div className="flex flex-col gap-2 mb-4 bg-slate-900/40 p-2 rounded-xl border border-slate-900">
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => { RetroSFX.playClick(); setLeaderboardTab('weekly'); }}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-black transition duration-150 ${
+                          leaderboardTab === 'weekly'
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200'
                         }`}
                       >
-                        <span className="text-xs text-slate-500 font-semibold">{day.displayDate}</span>
-                        <span className="text-xs sm:text-sm font-black text-slate-300 mt-0.5">{day.weekday}</span>
-                        
-                        <div className="my-1.5 text-xl">
-                          {hasXP ? (
-                            <motion.span 
-                              animate={{ scale: [1, 1.2, 1] }} 
-                              transition={{ duration: 2, repeat: -1 }}
-                              className="inline-block"
+                        📅 7天累積排行 (Last 7 Days)
+                      </button>
+                      <button
+                        onClick={() => { RetroSFX.playClick(); setLeaderboardTab('all-time'); }}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-black transition duration-150 ${
+                          leaderboardTab === 'all-time'
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        👑 累積總體排行 (All-Time)
+                      </button>
+                    </div>
+
+                    {/* Secondary sorting option */}
+                    <AnimatePresence mode="wait">
+                      {leaderboardTab === 'all-time' && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          className="flex items-center justify-between border-t border-slate-800/50 pt-2 px-1"
+                        >
+                          <span className="text-[11px] text-slate-400 font-bold">選擇總體排序依據：</span>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => { RetroSFX.playClick(); setAllTimeSort('xp'); }}
+                              className={`py-1 px-2.5 rounded text-[10px] font-black transition duration-150 ${
+                                allTimeSort === 'xp'
+                                  ? 'bg-amber-500 text-slate-950 font-black'
+                                  : 'bg-slate-800 text-slate-400 hover:text-slate-300'
+                              }`}
                             >
-                              ⭐
-                            </motion.span>
-                          ) : (
-                            <span className="opacity-10 text-[14px]">🛡️</span>
-                          )}
-                        </div>
-                        
-                        <span className={`text-xs sm:text-sm font-black ${hasXP ? 'text-emerald-400' : 'text-slate-500'}`}>
-                          {hasXP ? `+${day.xp}` : '0'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-850 mt-3.5 flex items-center justify-between shadow-inner">
-                  <span className="text-xs sm:text-sm text-slate-300 font-bold">過去 7 天累計學習點數 (XP)：</span>
-                  <span className="text-sm sm:text-base font-black text-emerald-400 flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-850">
-                    +{currentWeeklyXP} XP ⭐
-                  </span>
-                </div>
-              </div>
-
-              {/* Global Leaderboard Card */}
-              <div className="bg-slate-950/85 border-2 border-indigo-950 rounded-2xl p-5 flex flex-col shadow-lg">
-                <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
-                  <h3 className="text-lg font-black text-slate-200 flex items-center gap-1.5">
-                    <Trophy size={20} className="text-yellow-400" />
-                    無限之塔勇士榜 🏆
-                  </h3>
-                  <button 
-                    id="refresh-leaderboard-lobby"
-                    onClick={fetchLeaderboard}
-                    className="p-1 hover:bg-slate-850 bg-slate-900 border border-slate-800 rounded text-slate-400 transition cursor-pointer"
-                  >
-                    <RefreshCw size={14} className={isLeaderboardLoading ? "animate-spin" : ""} />
-                  </button>
-                </div>
-
-                <p className="text-xs sm:text-sm text-slate-400 mb-3 leading-relaxed font-medium">
-                  本排名榜按 7天累積XP 進行排序。擊敗學術怪獸爭取更高的無上榮耀！
-                </p>
-
-                {isLeaderboardLoading ? (
-                  <div className="flex-1 flex flex-col items-center justify-center py-6">
-                    <RefreshCw size={24} className="animate-spin text-indigo-400 mb-1.5" />
-                    <span className="text-xs text-slate-400">正在同步雲端數據中...</span>
-                  </div>
-                ) : (
-                  <div className="overflow-y-auto space-y-1.5 pr-0.5 max-h-[240px] scrollbar-thin scrollbar-thumb-slate-800">
-                    {leaderboard.length === 0 ? (
-                      <div className="text-center py-8 text-slate-500 text-sm italic">
-                        暫無資料。開始爬塔來登錄勇士榜吧！
-                      </div>
-                    ) : (
-                      leaderboard.map((entry, idx) => {
-                        const isMe = entry.name.toLowerCase() === gameState.heroName.toLowerCase();
-                        const rankColors = ['bg-yellow-400 text-slate-950', 'bg-slate-300 text-slate-950', 'bg-amber-600 text-white'];
-                        
-                        return (
-                          <div 
-                            key={entry.name + idx} 
-                            className={`p-2.5 rounded-lg border flex items-center justify-between text-xs transition duration-150 ${
-                              isMe 
-                                ? 'bg-indigo-950/50 border-indigo-500/70 shadow-[0_0_10px_rgba(99,102,241,0.2)]' 
-                                : 'bg-slate-900/50 border-slate-850 hover:border-slate-800'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold font-mono text-xs ${idx < 3 ? rankColors[idx] : 'bg-slate-800 text-slate-400'}`}>
-                                {idx + 1}
-                              </span>
-                              
-                              <div>
-                                <div className="font-extrabold text-slate-100 flex items-center gap-1.5">
-                                  <span className="text-sm">{entry.name}</span>
-                                  {isMe && <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.2 rounded font-black">你</span>}
-                                </div>
-                                <div className="text-xs text-slate-400 mt-0.5">
-                                  總 XP: {entry.xp} | 最高: 第 {entry.maxFloorReached} 層
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="text-right">
-                              <div className="font-black text-emerald-400 text-sm">
-                                {entry.weeklyXP} XP
-                              </div>
-                              <div className="text-[10px] text-slate-500 uppercase font-black">7天累積</div>
-                            </div>
+                              ⭐ 總計 XP Sorting
+                            </button>
+                            <button
+                              onClick={() => { RetroSFX.playClick(); setAllTimeSort('floor'); }}
+                              className={`py-1 px-2.5 rounded text-[10px] font-black transition duration-150 ${
+                                allTimeSort === 'floor'
+                                  ? 'bg-amber-500 text-slate-950 font-black'
+                                  : 'bg-slate-800 text-slate-400 hover:text-slate-300'
+                              }`}
+                            >
+                              🏰 最高樓層 Sorting
+                            </button>
                           </div>
-                        );
-                      })
-                    )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                )}
-              </div>
 
+                  <p className="text-xs text-slate-400 mb-3 leading-relaxed font-medium">
+                    {leaderboardTab === 'weekly' 
+                      ? "📊 依據「最近7天」累積的 XP 排行，每週更新競爭激烈！" 
+                      : allTimeSort === 'xp' 
+                        ? "👑 依據「歷代總累計 XP」排行，展現小勇士的宏偉學術總成就！" 
+                        : "🏰 依據「攀登的最高樓層」排行，展現小勇士探索無限之塔的深度！"
+                    }
+                  </p>
+
+                  {isLeaderboardLoading ? (
+                    <div className="flex-1 flex flex-col items-center justify-center py-10">
+                      <RefreshCw size={24} className="animate-spin text-indigo-400 mb-1.5" />
+                      <span className="text-xs text-slate-400">正在同步雲端數據中...</span>
+                    </div>
+                  ) : (
+                    <div className="overflow-y-auto space-y-1.5 pr-0.5 max-h-[280px] scrollbar-thin scrollbar-thumb-slate-800">
+                      {(() => {
+                        const sorted = [...leaderboard].sort((a, b) => {
+                          if (leaderboardTab === 'weekly') {
+                            return (b.weeklyXP || 0) - (a.weeklyXP || 0) || (b.xp || 0) - (a.xp || 0);
+                          } else {
+                            if (allTimeSort === 'xp') {
+                              return (b.xp || 0) - (a.xp || 0) || (b.maxFloorReached || 0) - (a.maxFloorReached || 0);
+                            } else {
+                              return (b.maxFloorReached || 0) - (a.maxFloorReached || 0) || (b.xp || 0) - (a.xp || 0);
+                            }
+                          }
+                        });
+
+                        if (sorted.length === 0) {
+                          return (
+                            <div className="text-center py-8 text-slate-500 text-sm italic">
+                              暫無資料。開始爬塔來登錄勇士榜吧！
+                            </div>
+                          );
+                        }
+
+                        return sorted.slice(0, 50).map((entry, idx) => {
+                          const isMe = entry.name.toLowerCase() === gameState.heroName.toLowerCase();
+                          const rankColors = ['bg-yellow-400 text-slate-950', 'bg-slate-300 text-slate-950', 'bg-amber-600 text-white'];
+                          
+                          return (
+                            <div 
+                              key={entry.name + idx} 
+                              className={`p-2.5 rounded-lg border flex items-center justify-between text-xs transition duration-150 ${
+                                isMe 
+                                  ? 'bg-indigo-950/50 border-indigo-500/70 shadow-[0_0_10px_rgba(99,102,241,0.2)]' 
+                                  : 'bg-slate-900/50 border-slate-850 hover:border-slate-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold font-mono text-xs ${idx < 3 ? rankColors[idx] : 'bg-slate-800 text-slate-400'}`}>
+                                  {idx + 1}
+                                </span>
+                                
+                                <div>
+                                  <div className="font-extrabold text-slate-100 flex items-center gap-1.5">
+                                    <span className="text-sm">{entry.name}</span>
+                                    {isMe && <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.2 rounded font-black">你</span>}
+                                  </div>
+                                  <div className="text-xs text-slate-400 mt-0.5">
+                                    總 XP: {entry.xp} | 最高: 第 {entry.maxFloorReached} 層
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right">
+                                <div className="font-black text-emerald-400 text-sm">
+                                  {leaderboardTab === 'weekly' ? `${entry.weeklyXP} XP` : allTimeSort === 'xp' ? `${entry.xp} XP` : `第 ${entry.maxFloorReached} 層`}
+                                </div>
+                                <div className="text-[10px] text-slate-500 uppercase font-black">
+                                  {leaderboardTab === 'weekly' ? '7天累積' : allTimeSort === 'xp' ? '總學習點' : '最高探險'}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+              </div>
             </div>
 
           </div>
@@ -1911,7 +2055,7 @@ export default function App() {
 
                   <div className="flex items-center justify-between gap-2 bg-slate-900/60 px-3 py-2 rounded-lg border border-slate-800/40">
                     <div className="flex items-center gap-1">
-                      {Array.from({ length: gameState.maxHp }).map((_, idx) => {
+                      {Array.from({ length: effectiveMaxHp }).map((_, idx) => {
                         const active = idx < gameState.hp;
                         return (
                           <span 
@@ -1924,7 +2068,7 @@ export default function App() {
                       })}
                     </div>
                     <span className="text-xs font-extrabold text-slate-300 bg-slate-950 px-2.5 py-0.5 rounded-full">
-                      {gameState.hp}/{gameState.maxHp}
+                      {gameState.hp}/{effectiveMaxHp}
                     </span>
                   </div>
 
@@ -2760,12 +2904,12 @@ export default function App() {
                       『 勇敢的 Jovan 勇士，你一路上辛苦了。讓我用精靈古老的森林搖籃曲，為你注入滿盈的治癒奇蹟吧！ 』
                     </p>
                     <div className="my-6 text-sm text-slate-400">
-                      效果：<span className="text-pink-400 font-bold">完全恢復所有 HP ❤️ ({gameState.maxHp}/{gameState.maxHp})</span>
+                      效果：<span className="text-pink-400 font-bold">完全恢復所有 HP ❤️ ({effectiveMaxHp}/{effectiveMaxHp})</span>
                     </div>
                     <button
                       onClick={() => {
-                        setGameState(prev => ({ ...prev, hp: prev.maxHp }));
-                        pushLog(`🧚 精靈 Miko 施展神聖全回復魔法！Jovan 的生命值完全恢復了 (${gameState.maxHp}/${gameState.maxHp})！❤️`);
+                        setGameState(prev => ({ ...prev, hp: effectiveMaxHp }));
+                        pushLog(`🧚 精靈 Miko 施展神聖全回復魔法！Jovan 的生命值完全恢復了 (${effectiveMaxHp}/${effectiveMaxHp})！❤️`);
                         if (GameBridge.currentScene && typeof GameBridge.currentScene.destroyMerchant === 'function') {
                           GameBridge.currentScene.destroyMerchant();
                         }
@@ -2790,14 +2934,14 @@ export default function App() {
                     </p>
                     <div className="my-6 text-sm text-slate-400">
                       效果：<span className="text-orange-400 font-bold">恢復 1 格生命值 ❤️</span>
-                      <div className="text-xs text-slate-500 mt-1">目前生命: {gameState.hp}/{gameState.maxHp}</div>
+                      <div className="text-xs text-slate-500 mt-1">目前生命: {gameState.hp}/{effectiveMaxHp}</div>
                     </div>
                     <button
                       onClick={() => {
-                        if (gameState.hp >= gameState.maxHp) {
+                        if (gameState.hp >= effectiveMaxHp) {
                           pushLog(`🔥 Jovan 在營火旁烤火聊天，雖然生命值已滿，但精神倍增！`);
                         } else {
-                          setGameState(prev => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + 1) }));
+                          setGameState(prev => ({ ...prev, hp: Math.min(effectiveMaxHp, prev.hp + 1) }));
                           pushLog(`🔥 Jovan 在營火旁舒適地休息了一會，生命值恢復了 1 點。❤️`);
                         }
                         if (GameBridge.currentScene && typeof GameBridge.currentScene.destroyMerchant === 'function') {
@@ -3865,8 +4009,8 @@ export default function App() {
                        </button>
                        <button
                          onClick={() => {
-                           setGameState(prev => ({ ...prev, totalXP: 0 }));
-                           pushLog("🛠️ [開發者] 生涯總 XP 已歸零 ⭐");
+                           setGameState(prev => ({ ...prev, totalXP: 0, dailyLog: [] }));
+                           pushLog("🛠️ [開發者] 生涯總 XP 及每日學習日誌已歸零 ⭐");
                          }}
                          className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/50 text-rose-300 text-[9px] font-bold rounded cursor-pointer flex-1 text-center transition"
                        >

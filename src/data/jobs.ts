@@ -83,7 +83,7 @@ export const JOBS: Job[] = [
     englishName: 'Dancer',
     emoji: '💃',
     skillName: '輕盈步法',
-    skillDesc: '關卡中寶箱與錢袋的出現機率提高，且每次生成時有 50% 機率多出一個古老寶箱！',
+    skillDesc: '關卡中寶箱與錢袋的出現機率提高，且每次生成時有 100% 機率多出一個古老寶箱！',
     unlockXP: 3000,
   },
   {
@@ -101,7 +101,7 @@ export const JOBS: Job[] = [
     englishName: 'Sage',
     emoji: '📜',
     skillName: '真理之鑰',
-    skillDesc: '每次擊敗 BOSS 關卡後，有 20% 機率使獲得的金幣與 XP 翻倍！',
+    skillDesc: '每次擊敗 BOSS 關卡後，有 50% 機率使獲得的金幣與 XP 翻倍！',
     unlockXP: 3500,
   },
 ];

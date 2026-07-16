@@ -98,8 +98,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     try {
       const q = query(
         collection(db, 'leaderboard'),
-        orderBy('weeklyXP', 'desc'),
-        limit(10)
+        limit(100)
       );
       const snapshot = await getDocs(q);
       const list: LeaderboardEntry[] = [];
@@ -108,7 +107,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
         list.push({
           name: data.name || doc.id,
           xp: data.xp || 0,
-          weeklyXP: data.weeklyXP || 0,
+          weeklyXP: data.weeklyXP !== undefined ? data.weeklyXP : (data.weeklyXp || 0),
           maxFloorReached: data.maxFloorReached || 1,
           goldCoins: data.goldCoins || 0,
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()

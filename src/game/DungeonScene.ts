@@ -652,8 +652,8 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
 
-    // Dancer (舞者) - 50% chance for an extra chest
-    if (this.selectedJobId === 'dancer' && Math.random() < 0.5 && eligibleCells.length > 0) {
+    // Dancer (舞者) - 100% chance for an extra chest
+    if (this.selectedJobId === 'dancer' && eligibleCells.length > 0) {
       const cell = eligibleCells.pop()!;
       const cx = cell.x * this.tileSize + this.tileSize / 2;
       const cy = cell.y * this.tileSize + this.tileSize / 2;
@@ -1221,7 +1221,7 @@ export class DungeonScene extends Phaser.Scene {
     });
   }
 
-  public wipeAllMonsters() {
+  public wipeAllMonsters(noRewards = false) {
     const monsters = this.monstersGroup.getChildren();
     if (monsters.length === 0) return;
 
@@ -1257,20 +1257,25 @@ export class DungeonScene extends Phaser.Scene {
           this.monstersGroup.remove(monsterSprite);
           monsterSprite.destroy();
 
-          const goldMultiplier = isElite ? 2 : 1;
-          const lootGold = Math.floor((15 + Math.floor(Math.random() * 11)) * goldMultiplier);
-          const lootXP = isElite 
-            ? (5 + Math.floor(Math.random() * 6)) // 5 to 10 XP
-            : (1 + Math.floor(Math.random() * 5)); // 1 to 5 XP
+          if (!noRewards) {
+            const goldMultiplier = isElite ? 2 : 1;
+            const lootGold = Math.floor((15 + Math.floor(Math.random() * 11)) * goldMultiplier);
+            const lootXP = isElite 
+              ? (5 + Math.floor(Math.random() * 6)) // 5 to 10 XP
+              : (1 + Math.floor(Math.random() * 5)); // 1 to 5 XP
 
-          this.safeCall(GameBridge.onGoldGained, lootGold);
-          this.safeCall(GameBridge.onXPGained, lootXP);
-          
-          this.showFloatingText(mx, my - 20, `+${lootGold} 🟡`, '#facc15');
-          this.showFloatingText(mx, my - 40, `+${lootXP} ⭐`, '#60a5fa');
+            this.safeCall(GameBridge.onGoldGained, lootGold);
+            this.safeCall(GameBridge.onXPGained, lootXP);
+            
+            this.showFloatingText(mx, my - 20, `+${lootGold} 🟡`, '#facc15');
+            this.showFloatingText(mx, my - 40, `+${lootXP} ⭐`, '#60a5fa');
+          }
         }
       });
     });
+
+    this.activeMonsterId = null;
+    this.activeMonsterSprite = null;
 
     this.time.delayedCall(600, () => {
       this.checkPortalUnlockStatus();

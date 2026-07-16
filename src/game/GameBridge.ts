@@ -37,9 +37,9 @@ export const GameBridge = {
     }
   },
 
-  wipeAllMonsters: () => {
+  wipeAllMonsters: (noRewards?: boolean) => {
     if (GameBridge.currentScene && typeof GameBridge.currentScene.wipeAllMonsters === 'function') {
-      GameBridge.currentScene.wipeAllMonsters();
+      GameBridge.currentScene.wipeAllMonsters(noRewards);
     }
   }
 };
