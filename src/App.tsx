@@ -3997,7 +3997,7 @@ export default function App() {
                      </div>
 
                      {/* Quick Zero Presets Row */}
-                     <div className="flex justify-between gap-2 bg-slate-950/40 p-2 rounded-lg border border-slate-900">
+                     <div className="flex flex-wrap justify-between gap-2 bg-slate-950/40 p-2 rounded-lg border border-slate-900">
                        <button
                          onClick={() => {
                            setGameState(prev => ({ ...prev, goldCoins: 0 }));
@@ -4015,6 +4015,15 @@ export default function App() {
                          className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/50 text-rose-300 text-[9px] font-bold rounded cursor-pointer flex-1 text-center transition"
                        >
                          🧹 XP 一鍵歸零
+                       </button>
+                       <button
+                         onClick={() => {
+                           setGameState(prev => ({ ...prev, currentFloor: 1, maxFloorReached: 1 }));
+                           pushLog("🛠️ [開發者] 目前樓層及最高挑戰樓層已重置為第 1 層 🏰");
+                         }}
+                         className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/50 text-rose-300 text-[9px] font-bold rounded cursor-pointer flex-1 text-center transition"
+                       >
+                         🧹 樓層一鍵重置
                        </button>
                      </div>
                    </div>
