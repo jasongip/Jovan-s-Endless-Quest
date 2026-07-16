@@ -53,6 +53,33 @@
         touch-action: none;
       }
 
+      /* Mobile optimization: allow scrolling only on mobile phone screens (typically max-width 950px) */
+      /* This preserves the elegant, no-scroll screen-fitting layout on PC browsers and iPads (where width > 950px in landscape) */
+      @media (max-width: 950px) {
+        html, body {
+          height: auto !important;
+          min-height: 100vh !important;
+          overflow-y: auto !important;
+          touch-action: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
+      }
+
+      /* Custom optimization for short viewports (mobile landscape) to reduce vertical padding and spacing */
+      @media (max-height: 550px) {
+        main {
+          padding: 0.5rem 1rem !important;
+          gap: 0.75rem !important;
+        }
+        header {
+          padding-top: 0.5rem !important;
+          padding-bottom: 0.5rem !important;
+        }
+        .grid {
+          gap: 0.75rem !important;
+        }
+      }
+
       /* Landscape lock hints for standard mobile orientation if needed */
       @media screen and (orientation: portrait) {
         #landscape-helper {

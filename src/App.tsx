@@ -175,6 +175,22 @@ export default function App() {
       RetroSFX.stopMusic();
     };
   }, [isPlaying, soundEnabled]);
+
+  // Pre-load / warm up SpeechSynthesis voices on mount for iOS/iPad Safari compatibility
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.getVoices();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.getVoices();
+          };
+        }
+      } catch (e) {
+        console.warn("SpeechSynthesis warm-up failed:", e);
+      }
+    }
+  }, []);
   
   // Standard monster question caching to allow retries of the exact same question
   const monsterQuestionsRef = useRef<Record<string, QuizQuestion>>({});
@@ -254,11 +270,36 @@ export default function App() {
           const voices = window.speechSynthesis.getVoices();
           if (voices && voices.length > 0) {
             const target = normalizedLang.toLowerCase();
-            let matchedVoice = voices.find(v => v.lang.toLowerCase().replace('_', '-') === target);
-            if (!matchedVoice) {
-              const prefix = target.split('-')[0];
-              matchedVoice = voices.find(v => v.lang.toLowerCase().replace('_', '-').startsWith(prefix));
+            
+            let matchedVoice = null;
+            if (target === 'zh-hk') {
+              // 1. First, search for exact Cantonese matches
+              matchedVoice = voices.find(v => {
+                const l = v.lang.toLowerCase().replace('_', '-');
+                return l === 'zh-hk' || l === 'zh-hk-hk';
+              });
+              
+              // 2. If not found, look for any voice containing Cantonese markers: 'hk', 'cantonese', 'hong kong', 'yue', or '廣東' / '粵'
+              if (!matchedVoice) {
+                matchedVoice = voices.find(v => {
+                  const l = v.lang.toLowerCase().replace('_', '-');
+                  const n = v.name.toLowerCase();
+                  return l.includes('hk') || n.includes('cantonese') || n.includes('hong kong') || l.includes('yue') || n.includes('廣東') || n.includes('粵');
+                });
+              }
+              
+              // CRITICAL iPadOS / iOS Fix: If we cannot find a genuine Cantonese voice, DO NOT fall back to 'zh' prefix (Mandarin).
+              // Setting a Mandarin (zh-CN) voice forces the iOS engine to read Cantonese text in Mandarin pronunciation.
+              // Leaving utterance.voice = null allows iOS/Safari to correctly fall back to its high-quality native default Cantonese engine.
+            } else {
+              // Standard matching for English/other languages
+              matchedVoice = voices.find(v => v.lang.toLowerCase().replace('_', '-') === target);
+              if (!matchedVoice) {
+                const prefix = target.split('-')[0];
+                matchedVoice = voices.find(v => v.lang.toLowerCase().replace('_', '-').startsWith(prefix));
+              }
             }
+            
             if (matchedVoice) {
               utterance.voice = matchedVoice;
             }
