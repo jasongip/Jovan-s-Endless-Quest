@@ -7,15 +7,17 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, collection, getDocs, limit, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { LeaderboardEntry } from './types';
+import appletConfig from '../firebase-applet-config.json';
 
 // Robust configuration parsing from environment variables or custom files
 const firebaseConfig = {
-  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || "",
-  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || "",
+  apiKey: appletConfig?.apiKey || (import.meta as any).env?.VITE_FIREBASE_API_KEY || "",
+  authDomain: appletConfig?.authDomain || (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: appletConfig?.projectId || (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: appletConfig?.storageBucket || (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: appletConfig?.messagingSenderId || (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: appletConfig?.appId || (import.meta as any).env?.VITE_FIREBASE_APP_ID || "",
+  firestoreDatabaseId: appletConfig?.firestoreDatabaseId || "",
 };
 
 let app;
@@ -27,7 +29,9 @@ let isFirebaseEnabled = false;
 if (firebaseConfig.projectId && firebaseConfig.apiKey) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    db = getFirestore(app);
+    db = firebaseConfig.firestoreDatabaseId 
+      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(app);
     auth = getAuth(app);
     isFirebaseEnabled = true;
     console.log("🔥 Firebase initialized successfully for leaderboard sync.");
@@ -113,7 +117,10 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
         });
       });
-      if (list.length > 0) return list;
+      if (list.length > 0) {
+        list.sort((a, b) => (b.weeklyXP || 0) - (a.weeklyXP || 0) || (b.xp || 0) - (a.xp || 0));
+        return list;
+      }
     } catch (err) {
       console.warn("Could not fetch remote leaderboard, returning local data.", err);
     }
