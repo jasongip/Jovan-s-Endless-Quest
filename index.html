@@ -53,15 +53,21 @@
         touch-action: none;
       }
 
-      /* Mobile optimization: allow scrolling only on mobile phone screens (typically max-width 950px) */
-      /* This preserves the elegant, no-scroll screen-fitting layout on PC browsers and iPads (where width > 950px in landscape) */
-      @media (max-width: 950px) {
+      /* Mobile optimization: allow scrolling only on mobile phone screens (typically max-width 1023px) */
+      /* This preserves the elegant, no-scroll screen-fitting layout on PC browsers and iPads (where width >= 1024px in landscape) */
+      @media (max-width: 1023px) {
         html, body {
           height: auto !important;
           min-height: 100vh !important;
           overflow-y: auto !important;
-          touch-action: auto !important;
+          touch-action: pan-y !important;
           -webkit-overflow-scrolling: touch;
+        }
+        #root {
+          height: auto !important;
+          min-height: 100vh !important;
+          overflow-y: auto !important;
+          touch-action: pan-y !important;
         }
       }
 
