@@ -1248,13 +1248,15 @@ export class DungeonScene extends Phaser.Scene {
 
       this.createConfetti(mx, my);
 
+      // Remove from the group IMMEDIATELY so remaining checks are instantly accurate!
+      this.monstersGroup.remove(monsterSprite);
+
       this.tweens.add({
         targets: monsterSprite,
         scale: 0,
         angle: 720,
         duration: 500,
         onComplete: () => {
-          this.monstersGroup.remove(monsterSprite);
           monsterSprite.destroy();
 
           if (!noRewards) {
@@ -1276,6 +1278,8 @@ export class DungeonScene extends Phaser.Scene {
 
     this.activeMonsterId = null;
     this.activeMonsterSprite = null;
+
+    this.checkPortalUnlockStatus();
 
     this.time.delayedCall(600, () => {
       this.checkPortalUnlockStatus();

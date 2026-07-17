@@ -41,7 +41,7 @@ export const CHINESE_WORDS_DB: ChineseWord[] = [
   { word: "清水", en: "water", strokes: 11, similar: ["睛水", "晴水", "清冰", "請水"] },
   { word: "小鳥", en: "bird", strokes: 3, similar: ["小烏", "少鳥", "小馬", "小鳴"] },
   { word: "飛機", en: "airplane", strokes: 9, similar: ["非機", "飛幾", "菲機", "蜚機"] },
-  { word: "花朵", en: "flower", strokes: 7, similar: ["化朵", "花朵", "華朵", "荷朵"] },
+  { word: "花朵", en: "flower", strokes: 7, similar: ["化朵", "華朵", "荷朵", "葉朵"] },
   { word: "牛奶", en: "milk", strokes: 4, similar: ["午奶", "牛乃", "生奶", "半奶"] },
   { word: "快樂", en: "happy", strokes: 7, similar: ["快落", "抉樂", "怏樂", "決樂"] },
   { word: "溫暖", en: "warm", strokes: 12, similar: ["濕暖", "溫緩", "溫愛", "慍暖"] },
@@ -58,7 +58,7 @@ export const CHINESE_WORDS_DB: ChineseWord[] = [
   { word: "學習", en: "study", strokes: 16, similar: ["學羽", "字習", "覺習", "學刁"] },
   { word: "操心", en: "worry", strokes: 16, similar: ["燥心", "澡心", "操必", "操沁"] },
   { word: "時間", en: "time", strokes: 10, similar: ["時問", "持間", "詩間", "時開"] },
-  { word: "鐘錶", en: "clock", strokes: 20, similar: ["鐘錶", "鐘表", "鏡錶", "鐘裏"] },
+  { word: "鐘錶", en: "clock", strokes: 20, similar: ["鐘表", "鏡錶", "鐘裏", "鐘牌"] },
   { word: "朋友", en: "friend", strokes: 8, similar: ["明友", "朋有", "崩友", "胡友"] },
   { word: "幫助", en: "help", strokes: 12, similar: ["綁助", "幫且", "幚助", "鄉助"] },
   { word: "遊戲", en: "game", strokes: 12, similar: ["遊劇", "遊虐", "游戲", "旅戲"] },
@@ -67,7 +67,7 @@ export const CHINESE_WORDS_DB: ChineseWord[] = [
   { word: "洗手", en: "wash hands", strokes: 9, similar: ["洗毛", "洗首", "冼手", "選手"] },
   { word: "睡覺", en: "sleep", strokes: 13, similar: ["睡學", "唾覺", "睡黨", "睡管"] },
   { word: "跑步", en: "running", strokes: 12, similar: ["包步", "跑涉", "咆步", "抱步"] },
-  { word: "跳繩", en: "skipping", strokes: 13, similar: ["兆繩", "跳繩", "佻繩", "桃繩"] }
+  { word: "跳繩", en: "skipping", strokes: 13, similar: ["兆繩", "挑繩", "佻繩", "桃繩"] }
 ];
 
 // static HK P1/P2 Cloze & Reorder arrays
@@ -621,6 +621,9 @@ const ALL_QUESTION_DEFS: QuestionDef[] = [
   { level: 1, type: 'english', subtype: 'phonics' },
   { level: 1, type: 'math', subtype: 'math_single_digit' },
   { level: 1, type: 'logic', subtype: 'logic_num_pattern' },
+  { level: 1, type: 'english', subtype: 'emoji_en' },
+  { level: 1, type: 'chinese', subtype: 'emoji_zh' },
+  { level: 1, type: 'chinese', subtype: 'match' },
 
   // Level 2
   { level: 2, type: 'chinese', subtype: 'sentence_fill' },
@@ -631,16 +634,13 @@ const ALL_QUESTION_DEFS: QuestionDef[] = [
 
   // Level 3
   { level: 3, type: 'chinese', subtype: 'missing_stroke' },
-  { level: 3, type: 'english', subtype: 'emoji_en' },
   { level: 3, type: 'english', subtype: 'spelling' },
   { level: 3, type: 'math', subtype: 'math_double_subtraction' },
   { level: 3, type: 'math', subtype: 'math_single_mixed' },
-  { level: 3, type: 'chinese', subtype: 'match' },
   { level: 3, type: 'logic', subtype: 'logic_time' },
 
   // Level 4
   { level: 4, type: 'chinese', subtype: 'sentence_reorder' },
-  { level: 4, type: 'chinese', subtype: 'emoji_zh' },
   { level: 4, type: 'english', subtype: 'sentence_reorder' },
   { level: 4, type: 'math', subtype: 'math_5_7_multiplication' },
   { level: 4, type: 'math', subtype: 'math_double_mixed' },
@@ -1056,8 +1056,18 @@ export function generateQuestion(
   if (type === 'chinese') {
     if (subtype === 'pronunciation') {
       const wordObj = CHINESE_WORDS_DB[Math.floor(Math.random() * CHINESE_WORDS_DB.length)];
-      // Fix 5-options bug: Slice similar distractors to exactly 3 items
-      const dists = [...wordObj.similar].sort(() => Math.random() - 0.5).slice(0, 3);
+      // Filter out the correct word itself from distractors and remove duplicates
+      const pureDists = Array.from(new Set(wordObj.similar.filter(item => item !== wordObj.word)));
+      const dists = [...pureDists].sort(() => Math.random() - 0.5).slice(0, 3);
+      
+      // Fallback: if there are fewer than 3 distractors, fill with random unique words
+      while (dists.length < 3) {
+        const randomWord = CHINESE_WORDS_DB[Math.floor(Math.random() * CHINESE_WORDS_DB.length)].word;
+        if (randomWord !== wordObj.word && !dists.includes(randomWord)) {
+          dists.push(randomWord);
+        }
+      }
+      
       const options = [wordObj.word, ...dists].sort(() => Math.random() - 0.5);
       
       return {
@@ -1358,18 +1368,81 @@ export function generateQuestion(
   });
 
   // Keep auto-generating simple fill templates until we have 105+
+  const wordFillSentences: Record<string, { sentence: string, explanation: string, distractors: string[] }> = {
+    "學校": { sentence: "我們每天早上都準時去___上課學知識。", explanation: "去「學校」上課學習。", distractors: ["操場", "森林", "太陽"] },
+    "同學": { sentence: "小明是我的班長，也是我最要好的___。", explanation: "班長和我是「同學」。", distractors: ["老師", "醫生", "小狗"] },
+    "太陽": { sentence: "早晨，紅紅的___從東方升起，照亮大地。", explanation: "「太陽」從東方升起。", distractors: ["月亮", "大樹", "蘋果"] },
+    "禮貌": { sentence: "見到老師要主動打招呼，做個有___的好孩子。", explanation: "主動打招呼是有「禮貌」的表現。", distractors: ["衣服", "玩具", "時間"] },
+    "鉛筆": { sentence: "我用黑色的___在作業本上認真寫字。", explanation: "寫字用「鉛筆」。", distractors: ["牛奶", "小鳥", "飛機"] },
+    "蘋果": { sentence: "紅彤彤的___吃起來又甜又脆，非常有營養。", explanation: "「蘋果」是又甜又脆的紅水果。", distractors: ["樹葉", "鉛筆", "清水"] },
+    "唱歌": { sentence: "音樂課上，同學們一起大聲___，歌聲真美妙。", explanation: "歌唱表演是「唱歌」。", distractors: ["跑步", "睡覺", "洗手"] },
+    "畫畫": { sentence: "美勞課時，我用彩色筆在畫紙上___。", explanation: "在畫紙上「畫畫」。", distractors: ["唱歌", "跳繩", "學習"] },
+    "衣服": { sentence: "天氣冷了，媽媽叮囑我要多穿一件___保暖。", explanation: "穿「衣服」保暖。", distractors: ["水果", "功課", "玩具"] },
+    "明亮": { sentence: "課室裏有充足的光線，顯得十分___乾淨。", explanation: "光線充足顯得「明亮」。", distractors: ["溫暖", "操心", "快樂"] },
+    "眼睛": { sentence: "我們有一雙黑溜溜的___，用來觀察美麗的世界。", explanation: "用「眼睛」看世界。", distractors: ["耳朵", "雙手", "雙腳"] },
+    "大樹": { sentence: "花園裏長著一棵茂盛的___，樹葉綠油油的。", explanation: "茂盛的「大樹」有綠葉。", distractors: ["小狗", "飛機", "書本"] },
+    "玩耍": { sentence: "放學後，我和好朋友一起在公園裏高興地___。", explanation: "在公園「玩耍」嬉戲。", distractors: ["做功課", "睡覺", "洗手"] },
+    "早晨": { sentence: "一覺醒來，美麗的___伴隨著鳥鳴聲開始了。", explanation: "早上醒來是「早晨」。", distractors: ["深夜", "晚上", "中午"] },
+    "操場": { sentence: "體育課時，我們在寬闊的___上跑步鍛煉身體。", explanation: "在「操場」上上體育課、跑步。", distractors: ["教室", "圖書館", "醫院"] },
+    "水果": { sentence: "多吃香蕉、橙子等新鮮的___，能補充維他命。", explanation: "香蕉、橙子是「水果」。", distractors: ["牛奶", "麵包", "米飯"] },
+    "書本": { sentence: "書包裏裝滿了各式各樣的___，每天陪我上學。", explanation: "書包裝「書本」。", distractors: ["小貓", "大樹", "清水"] },
+    "老師": { sentence: "辛勤的___在講台上專心地給我們講授新知識。", explanation: "講授知識的人是「老師」。", distractors: ["學生", "小鳥", "醫生"] },
+    "清水": { sentence: "口渴的時候，喝一杯純淨的___最舒服了。", explanation: "口渴喝「清水」。", distractors: ["汽水", "牛奶", "果汁"] },
+    "小鳥": { sentence: "一隻彩色羽毛的___在枝頭嘰嘰喳喳叫個不停。", explanation: "會飛、在枝頭叫的是「小鳥」。", distractors: ["小狗", "小貓", "大象"] },
+    "飛機": { sentence: "抬頭看，一架巨大的___正在蔚藍的天空飛過。", explanation: "在天空飛的是「飛機」。", distractors: ["輪船", "火車", "巴士"] },
+    "快樂": { sentence: "今天是我最難忘的生日，我過得十分___滿足。", explanation: "生日過得非常「快樂」。", distractors: ["悲傷", "操心", "溫暖"] },
+    "溫暖": { sentence: "冬天的陽光照在身上，讓人感覺無比___舒服。", explanation: "冬日的陽光很「溫暖」。", distractors: ["寒冷", "明亮", "健康"] },
+    "綠草": { sentence: "春風吹過，漫山遍野長滿了青嫩的___地。", explanation: "春風吹綠「綠草」。", distractors: ["石頭", "沙灘", "大雪"] },
+    "森林": { sentence: "大自然中茂密的___裏，居住著無數野生動物。", explanation: "野生動物居住在「森林」中。", distractors: ["學校", "操場", "城市"] },
+    "天空": { sentence: "無邊無際的___中，飄浮著朵朵白雲和太陽。", explanation: "白雲和太陽在「天空」中。", distractors: ["海洋", "泥土", "地板"] },
+    "海洋": { sentence: "蔚藍而遼闊的___裏，游動著各種鯨魚 and 海豚。", explanation: "鯨魚和海豚在「海洋」裏游泳。", distractors: ["森林", "天空", "花園"] },
+    "月亮": { sentence: "夜晚的星空中，彎彎的___像一隻金色的小船。", explanation: "夜晚像小船的是「月亮」。", distractors: ["太陽", "彩虹", "白雲"] },
+    "故事": { sentence: "臨睡前，媽媽總會溫柔地給我講精彩的童話___。", explanation: "媽媽講「故事」哄我睡覺。", distractors: ["功課", "衣服", "鉛筆"] },
+    "功課": { sentence: "晚飯前，我坐在書桌旁認真地把今天的___寫完。", explanation: "寫完今天的「功課」/作業。", distractors: ["玩具", "水果", "唱跳"] },
+    "健康": { sentence: "我們平時要多運動、不挑食，身體才會強壯___。", explanation: "多運動不挑食讓身體更「健康」。", distractors: ["悲傷", "疲倦", "生病"] },
+    "身體": { sentence: "生病的時候，我們會覺得___非常疲倦不舒服。", explanation: "生病時「身體」不舒服。", distractors: ["功課", "衣服", "明亮"] },
+    "感謝": { sentence: "我們應該要對幫助過我們的人，真誠地說聲___。", explanation: "真誠地「感謝」他人。", distractors: ["生氣", "懷疑", "道歉"] },
+    "學習": { sentence: "在學校裏，我們不僅聽課，還要學會認真___新技能。", explanation: "「學習」新技能。", distractors: ["睡覺", "玩耍", "跑步"] },
+    "操心": { sentence: "媽媽每天為我操持家務，真是不辭勞苦，非常___。", explanation: "為家庭「操心」操勞。", distractors: ["快樂", "放鬆", "睡覺"] },
+    "時間": { sentence: "一寸光陰一寸金，我們一定要珍惜每分每秒的___。", explanation: "珍惜「時間」不浪費。", distractors: ["金錢", "玩具", "衣服"] },
+    "鐘錶": { sentence: "牆上掛著一個漂亮的___，滴答滴答地走個不停。", explanation: "滴答滴答走時的是「鐘錶」。", distractors: ["故事", "大樹", "書本"] },
+    "朋友": { sentence: "當我有困難時，好___會主動伸出雙手來幫助我。", explanation: "好「朋友」會互相幫助。", distractors: ["壞人", "怪獸", "玩具"] },
+    "幫助": { sentence: "我們要熱心___有需要的人，傳遞更多愛心。", explanation: "熱心「幫助」他人。", distractors: ["拒絕", "嘲笑", "打擾"] },
+    "遊戲": { sentence: "體育課結束前，老師帶領我們玩了一個有趣的團體___。", explanation: "玩團體「遊戲」強身健體。", distractors: ["作業", "大雨", "考試"] },
+    "圖書": { sentence: "圖書館裏整齊地擺放著各種各樣的___供大家閱讀。", explanation: "圖書館供人閱讀的是「圖書」。", distractors: ["零食", "玩具", "衣服"] },
+    "玩具": { sentence: "我的房間裏堆滿了心愛的積木、火車等各式___。", explanation: "積木、火車是「玩具」。", distractors: ["功課", "蔬菜", "水果"] },
+    "洗手": { sentence: "飯前便後、觸摸眼鼻前，我們都要用肥皂認真___。", explanation: "養成「洗手」衛生好習慣。", distractors: ["唱歌", "跳繩", "看書"] },
+    "睡覺": { sentence: "夜深了，我們該上床蓋好被子，安靜地___了。", explanation: "夜深上床「睡覺」。", distractors: ["畫畫", "跑步", "唱歌"] },
+    "跑步": { sentence: "體育老師一吹哨子，我們就飛快地繞著操場___。", explanation: "繞操場「跑步」。", distractors: ["唱歌", "畫畫", "寫字"] },
+    "跳繩": { sentence: "雙手搖著繩子，腳步輕快地跟著跳躍，這就是___運動。", explanation: "搖繩跳躍是「跳繩」。", distractors: ["游水", "睡覺", "看書"] }
+  };
+
   let fillIdx = 0;
   while (CHINESE_FILL_TEMPLATES.length < 105 && fillIdx < CHINESE_WORDS_DB.length) {
     const wordObj = CHINESE_WORDS_DB[fillIdx];
     fillIdx++;
-    const alreadyExists = CHINESE_FILL_TEMPLATES.some(t => t.correctAnswer === wordObj.word);
-    if (!alreadyExists) {
-      CHINESE_FILL_TEMPLATES.push({
-        question: `【Chinese Fill】請選出最適合填入空格的漢語詞彙：\n\n「我們在學校裏要努力學習「___」，天天向上。」`,
-        options: [wordObj.word, "泥土", "大霧", "石頭"].sort(() => Math.random() - 0.5),
-        correctAnswer: wordObj.word,
-        explanation: `這個句子最適合填入「${wordObj.word}」來表達正確意思。`
-      });
+    const sentenceDef = wordFillSentences[wordObj.word];
+    if (sentenceDef) {
+      const alreadyExists = CHINESE_FILL_TEMPLATES.some(t => t.correctAnswer === wordObj.word);
+      if (!alreadyExists) {
+        CHINESE_FILL_TEMPLATES.push({
+          question: `【Chinese Fill】請選出最適合填入空格的漢語詞彙：\n\n「${sentenceDef.sentence}」`,
+          options: [wordObj.word, ...sentenceDef.distractors].sort(() => Math.random() - 0.5),
+          correctAnswer: wordObj.word,
+          explanation: sentenceDef.explanation
+        });
+      }
+    } else {
+      // General fallback if we add words in the future
+      const alreadyExists = CHINESE_FILL_TEMPLATES.some(t => t.correctAnswer === wordObj.word);
+      if (!alreadyExists) {
+        CHINESE_FILL_TEMPLATES.push({
+          question: `【Chinese Fill】請選出與英文「${wordObj.en}」意思最對應的漢字詞彙：\n\n「___」`,
+          options: [wordObj.word, "泥土", "大霧", "石頭"].sort(() => Math.random() - 0.5),
+          correctAnswer: wordObj.word,
+          explanation: `「${wordObj.word}」對應的英文是「${wordObj.en}」。`
+        });
+      }
     }
   }
 
