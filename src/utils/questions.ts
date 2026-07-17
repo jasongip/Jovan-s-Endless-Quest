@@ -408,6 +408,36 @@ export function getLevelForFloor(floor: number): number {
   return 5;
 }
 
+export function getTargetLevelForFloor(floor: number): number {
+  const rand = Math.random() * 100;
+  if (floor <= 10) {
+    return 1;
+  } else if (floor <= 20) {
+    // Level 1: 40% + Level 2: 60%
+    if (rand < 40) return 1;
+    return 2;
+  } else if (floor <= 30) {
+    // Level 1: 5% + Level 2: 35% + Level 3: 60%
+    if (rand < 5) return 1;
+    if (rand < 40) return 2;
+    return 3;
+  } else if (floor <= 40) {
+    // Level 1: 1% + Level 2: 4% + Level 3: 35% + Level 4: 60%
+    if (rand < 1) return 1;
+    if (rand < 5) return 2;
+    if (rand < 40) return 3;
+    return 4;
+  } else {
+    // Level 1: 1% + Level 2: 1% + Level 3: 3% + Level 4: 35% + Level 5: 60%
+    if (rand < 1) return 1;
+    if (rand < 2) return 2;
+    if (rand < 5) return 3;
+    if (rand < 40) return 4;
+    return 5;
+  }
+}
+
+
 // Helper to generate exactly 4 distinct options for numeric questions
 function generateFourOptions(answer: number): string[] {
   const optionsSet = new Set<string>();
@@ -679,9 +709,17 @@ export function generateStrokeCountQuestion(usedIds: string[] = []): QuizQuestio
 
 // 5.1 Programmatic Math Question Generator
 export function generateMathQuestion(floor: number, usedIds: string[] = []): QuizQuestion {
-  // Map floor to level 1-5, select from math categories up to that level
-  const maxL = getLevelForFloor(floor);
-  const mathDefs = ALL_QUESTION_DEFS.filter(d => d.type === 'math' && d.level <= maxL);
+  // Map floor to level 1-5, select from math categories based on the targeted level distribution
+  const targetL = getTargetLevelForFloor(floor);
+  let mathDefs = ALL_QUESTION_DEFS.filter(d => d.type === 'math' && d.level === targetL);
+  
+  if (mathDefs.length === 0) {
+    mathDefs = ALL_QUESTION_DEFS.filter(d => d.type === 'math' && d.level <= targetL);
+  }
+  if (mathDefs.length === 0) {
+    mathDefs = ALL_QUESTION_DEFS.filter(d => d.type === 'math');
+  }
+  
   const def = mathDefs[Math.floor(Math.random() * mathDefs.length)] || mathDefs[0];
   const subtype = def.subtype;
 
@@ -1033,16 +1071,23 @@ export function generateQuestion(
   forceType?: 'math' | 'chinese' | 'english' | 'logic',
   usedIds: string[] = []
 ): QuizQuestion {
-  const maxL = getLevelForFloor(floor);
+  const targetL = getTargetLevelForFloor(floor);
   
-  // Filter categories up to floor's active level
-  let candidates = ALL_QUESTION_DEFS.filter(def => def.level <= maxL);
-  
+  // First attempt: try exact target level
+  let candidates = ALL_QUESTION_DEFS.filter(def => def.level === targetL);
   if (forceType) {
     candidates = candidates.filter(def => def.type === forceType);
   }
   
-  // Fallback to all definitions if constraint leaves nothing
+  // Second attempt: if exact target level has no candidates, try any level up to targetL
+  if (candidates.length === 0) {
+    candidates = ALL_QUESTION_DEFS.filter(def => def.level <= targetL);
+    if (forceType) {
+      candidates = candidates.filter(def => def.type === forceType);
+    }
+  }
+  
+  // Third attempt: fallback to any level
   if (candidates.length === 0) {
     candidates = forceType 
       ? ALL_QUESTION_DEFS.filter(def => def.type === forceType) 
