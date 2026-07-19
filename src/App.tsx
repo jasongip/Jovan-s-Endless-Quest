@@ -1981,6 +1981,16 @@ export default function App() {
 
           </div>
 
+          {/* Footer with Version & Last Update */}
+          <div className="mt-8 pt-4 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] sm:text-xs text-slate-500 font-mono tracking-wider w-full">
+            <div>
+              <span>系統版本 (VERSION): <span className="text-indigo-400 font-bold">v2.5.0-RELEASE</span></span>
+            </div>
+            <div>
+              <span>最後更新 (LAST UPDATE): <span className="text-indigo-400 font-bold">2026-07-19 19:00</span></span>
+            </div>
+          </div>
+
         </main>
       ) : (
         /* 3. GAMEPLAY IMMERSIVE FOCUS VIEW (Zero logs/leaderboard distraction) */
