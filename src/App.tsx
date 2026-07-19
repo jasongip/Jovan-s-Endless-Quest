@@ -2267,7 +2267,7 @@ export default function App() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className={`w-full max-w-xl bg-black border-4 border-white p-0.5 text-white font-mono relative shadow-2xl my-auto ${isScreenShaking ? "animate-shake" : ""}`}
+              className={`w-full max-w-3xl bg-black border-4 border-white p-0.5 text-white font-mono relative shadow-2xl my-auto ${isScreenShaking ? "animate-shake" : ""}`}
             >
               <div className="border border-white p-2.5 sm:p-4 flex flex-col items-stretch bg-black">
                 
@@ -2429,47 +2429,47 @@ export default function App() {
                 )}
 
                 {/* Giant Retro Question Box */}
-                <div className="w-full bg-black border-2 border-double border-white p-2.5 mb-2.5 text-center shadow-inner relative overflow-hidden">
+                <div className="w-full bg-black border-2 border-double border-white p-3.5 mb-3 text-center shadow-inner relative overflow-hidden">
                   {(() => {
                     const { header, instruction, content } = parseQuestionText(activeQuiz?.question || "");
                     return (
                       <>
                         {header && (
-                          <div className="mb-1">
-                            <span className="inline-block px-2 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400 bg-zinc-950 border border-amber-500/40 rounded-md">
+                          <div className="mb-1.5">
+                            <span className="inline-block px-2.5 py-0.5 text-xs sm:text-sm font-black uppercase tracking-widest text-amber-400 bg-zinc-950 border border-amber-500/40 rounded-md">
                               {header.replace(/【|】/g, '')}
                             </span>
                           </div>
                         )}
                         {instruction && (
-                          <p className="text-xs sm:text-sm font-black text-indigo-200 mb-1 leading-snug">
+                          <p className="text-lg sm:text-2xl md:text-[36px] lg:text-[40px] font-black text-indigo-200 mb-3 leading-normal md:leading-relaxed">
                             {instruction}
                           </p>
                         )}
-                        <div className="mt-0.5">
+                        <div className="mt-1">
                           {activeQuiz?.type === 'math' ? (
-                            <h4 className={`font-black text-yellow-300 tracking-wide font-sans py-0.5 drop-shadow-[0_1px_6px_rgba(253,224,71,0.3)] ${
-                              content.length > 20 ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'
+                            <h4 className={`font-black text-yellow-300 tracking-wide font-sans py-1 drop-shadow-[0_1px_6px_rgba(253,224,71,0.3)] ${
+                              content.length > 20 ? 'text-2xl sm:text-3xl md:text-4xl lg:text-[40px]' : 'text-3xl sm:text-4xl md:text-5xl lg:text-[54px]'
                             }`}>
                               {content}
                             </h4>
                           ) : (activeQuiz?.subtype === 'emoji_en' || activeQuiz?.subtype === 'emoji_zh') ? (
-                            <div className="flex flex-col items-center justify-center p-1">
+                            <div className="flex flex-col items-center justify-center p-1.5">
                               <motion.span 
                                 animate={{ scale: [1, 1.05, 1], rotate: [0, -2, 2, 0] }}
                                 transition={{ duration: 2.5, repeat: -1, ease: "easeInOut" }}
-                                className="text-5xl sm:text-6xl drop-shadow-[0_4px_8px_rgba(255,255,255,0.15)] select-none filter hover:brightness-110 active:scale-95 duration-100"
+                                className="text-6xl sm:text-7xl lg:text-8xl drop-shadow-[0_4px_8px_rgba(255,255,255,0.15)] select-none filter hover:brightness-110 active:scale-95 duration-100"
                               >
                                 {content}
                               </motion.span>
                             </div>
                           ) : (
-                            <h4 className="text-base sm:text-lg font-extrabold text-white leading-snug">
+                            <h4 className="text-xl sm:text-2xl md:text-3xl lg:text-[38px] font-black text-white leading-relaxed">
                               {content.split('___').map((part, i, arr) => (
                                 <span key={i}>
                                   {part}
                                   {i < arr.length - 1 && (
-                                    <span className="inline-block mx-1 bg-zinc-950 px-2.5 py-0.2 border-b-2 border-dashed border-white text-yellow-300 font-extrabold min-w-[40px] text-center text-sm sm:text-base rounded">
+                                    <span className="inline-block mx-2 bg-zinc-950 px-4 py-1 border-b-2 border-dashed border-white text-yellow-300 font-black min-w-[70px] text-center text-xl sm:text-2xl md:text-[36px] lg:text-[38px] rounded">
                                       {selectedOption || "___"}
                                     </span>
                                   )}
@@ -2498,16 +2498,16 @@ export default function App() {
                 {/* Conditional Rendering of Game Modes */}
                 {activeQuiz?.subtype === 'spelling' ? (
                   /* Spelling Virtual Keyboard QWERTY Mode */
-                  <div className="flex flex-col gap-2 items-center w-full max-w-xl mx-auto mb-1.5 bg-zinc-950 p-2.5 border-2 border-white rounded-xl shadow-lg">
-                    <p className="text-zinc-200 text-[10px] sm:text-xs mb-1 font-extrabold tracking-wide text-center">👉 請使用虛擬鍵盤或實體鍵盤拼寫單字：</p>
+                  <div className="flex flex-col gap-2.5 items-center w-full max-w-2xl mx-auto mb-1.5 bg-zinc-950 p-3.5 border-2 border-white rounded-xl shadow-lg">
+                    <p className="text-zinc-200 text-sm sm:text-base mb-1 font-extrabold tracking-wide text-center">👉 請使用虛擬鍵盤或實體鍵盤拼寫單字：</p>
                     
-                    <div className="flex justify-center gap-1 mb-2 flex-wrap">
+                    <div className="flex justify-center gap-1.5 mb-2.5 flex-wrap">
                       {Array.from({ length: activeQuiz?.correctAnswer?.length || 0 }).map((_, i) => {
                         const char = spellingInput[i] || "";
                         return (
                           <div 
                             key={i} 
-                            className="w-8 h-10 sm:w-10 sm:h-12 bg-zinc-900 border border-white text-yellow-300 font-black text-lg sm:text-xl flex items-center justify-center rounded-lg uppercase font-mono shadow-[0_2px_0_#fff] transition-all"
+                            className="w-10 h-12 sm:w-12 sm:h-14 bg-zinc-900 border border-white text-yellow-300 font-black text-xl sm:text-2xl md:text-3xl flex items-center justify-center rounded-lg uppercase font-mono shadow-[0_2px_0_#fff] transition-all"
                           >
                             {char}
                           </div>
@@ -2525,7 +2525,7 @@ export default function App() {
                             }
                           }}
                           disabled={isFeedbackShowing}
-                          className="flex-1 py-1.5 sm:py-2 bg-black hover:bg-white hover:text-black border border-white font-mono text-[10px] sm:text-xs font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
+                          className="flex-1 py-2 sm:py-2.5 bg-black hover:bg-white hover:text-black border border-white font-mono text-xs sm:text-sm md:text-base font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
                         >
                           {char}
                         </button>
@@ -2542,7 +2542,7 @@ export default function App() {
                             }
                           }}
                           disabled={isFeedbackShowing}
-                          className="flex-1 py-1.5 sm:py-2 bg-black hover:bg-white hover:text-black border border-white font-mono text-[10px] sm:text-xs font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
+                          className="flex-1 py-2 sm:py-2.5 bg-black hover:bg-white hover:text-black border border-white font-mono text-xs sm:text-sm md:text-base font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
                         >
                           {char}
                         </button>
@@ -2553,7 +2553,7 @@ export default function App() {
                       <button
                         onClick={() => setSpellingInput(prev => prev.slice(0, -1))}
                         disabled={isFeedbackShowing}
-                        className="px-2 py-1.5 sm:py-2 bg-red-950 hover:bg-red-800 border border-red-500 font-mono text-[9px] sm:text-[10px] font-black text-red-200 rounded-md cursor-pointer active:scale-90 transition shadow-[0_1px_0_#f43f5e]"
+                        className="px-3 py-2 sm:py-2.5 bg-red-950 hover:bg-red-800 border border-red-500 font-mono text-[10px] sm:text-xs md:text-sm font-black text-red-200 rounded-md cursor-pointer active:scale-90 transition shadow-[0_1px_0_#f43f5e]"
                       >
                         ⌫ 退格
                       </button>
@@ -2566,7 +2566,7 @@ export default function App() {
                             }
                           }}
                           disabled={isFeedbackShowing}
-                          className="flex-1 py-1.5 sm:py-2 bg-black hover:bg-white hover:text-black border border-white font-mono text-[10px] sm:text-xs font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
+                          className="flex-1 py-2 sm:py-2.5 bg-black hover:bg-white hover:text-black border border-white font-mono text-xs sm:text-sm md:text-base font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
                         >
                           {char}
                         </button>
@@ -2574,7 +2574,7 @@ export default function App() {
                       <button
                         onClick={() => setSpellingInput("")}
                         disabled={isFeedbackShowing}
-                        className="px-2 py-1.5 sm:py-2 bg-zinc-900 hover:bg-zinc-700 border border-white font-mono text-[9px] sm:text-[10px] font-black text-white rounded-md cursor-pointer active:scale-90 transition shadow-[0_1px_0_#fff]"
+                        className="px-3 py-2 sm:py-2.5 bg-zinc-900 hover:bg-zinc-700 border border-white font-mono text-[10px] sm:text-xs md:text-sm font-black text-white rounded-md cursor-pointer active:scale-90 transition shadow-[0_1px_0_#fff]"
                       >
                         重置
                       </button>
@@ -2586,7 +2586,7 @@ export default function App() {
                         handleAnswerSubmit(spellingInput.toUpperCase());
                       }}
                       disabled={isFeedbackShowing || spellingInput.length === 0}
-                      className={`w-full mt-2 py-2 border-2 border-white font-mono font-black text-xs sm:text-sm transition-all rounded-lg active:scale-95 ${
+                      className={`w-full mt-2 py-3 border-2 border-white font-mono font-black text-sm sm:text-base md:text-lg transition-all rounded-lg active:scale-95 ${
                         activeQuiz?.correctAnswer && spellingInput.length === activeQuiz.correctAnswer.length
                           ? 'bg-yellow-400 text-black hover:bg-white hover:text-black cursor-pointer shadow'
                           : 'bg-zinc-900 text-zinc-500 border-zinc-700 cursor-not-allowed'
@@ -2597,12 +2597,12 @@ export default function App() {
                   </div>
                 ) : activeQuiz?.subtype === 'sentence_reorder' ? (
                   /* Sentence Reordering Block Mode */
-                  <div className="flex flex-col gap-2 items-center w-full max-w-xl mx-auto mb-1.5 bg-zinc-950 p-2.5 border-2 border-white rounded-xl shadow-lg">
-                    <p className="text-zinc-200 text-[10px] sm:text-xs mb-1 font-extrabold text-center">👉 請點擊下方的字塊組合成正確的中文句子：</p>
+                  <div className="flex flex-col gap-3 items-center w-full max-w-3xl mx-auto mb-1.5 bg-zinc-950 p-4 border-2 border-white rounded-xl shadow-lg">
+                    <p className="text-zinc-200 text-base sm:text-xl md:text-2xl mb-2 font-extrabold text-center">👉 請點擊下方的字塊組合成正確的中文句子：</p>
                     
-                    <div className="w-full bg-zinc-900/60 border border-dashed border-white/60 p-2 rounded-lg min-h-[60px] flex flex-wrap justify-center items-center gap-1.5 mb-2.5">
+                    <div className="w-full bg-zinc-900/60 border border-dashed border-white/60 p-3 rounded-lg min-h-[80px] flex flex-wrap justify-center items-center gap-2 mb-3">
                       {reorderSelection.length === 0 ? (
-                        <span className="text-zinc-500 text-xs sm:text-sm font-bold">依正確語序依次點擊下方字塊...</span>
+                        <span className="text-zinc-500 text-base sm:text-lg md:text-xl font-bold">依正確語序依次點擊下方字塊...</span>
                       ) : (
                         reorderSelection.map((idx) => {
                           const word = activeQuiz?.scrambledWords?.[idx];
@@ -2613,7 +2613,7 @@ export default function App() {
                                 if (isFeedbackShowing) return;
                                 setReorderSelection(prev => prev.filter(x => x !== idx));
                               }}
-                              className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-indigo-600 hover:bg-red-600 text-white font-black border border-white font-sans text-xs sm:text-sm rounded-lg shadow-[0_1.5px_0_#fff] cursor-pointer transition active:scale-90"
+                              className="px-4 py-2 sm:px-5 sm:py-2.5 bg-indigo-600 hover:bg-red-600 text-white font-black border border-white font-sans text-base sm:text-lg md:text-2xl rounded-lg shadow-[0_2px_0_#fff] cursor-pointer transition active:scale-90"
                             >
                               {word}
                             </button>
@@ -2622,7 +2622,7 @@ export default function App() {
                       )}
                     </div>
 
-                    <div className="flex flex-wrap justify-center gap-1.5 mb-2.5">
+                    <div className="flex flex-wrap justify-center gap-2 mb-3">
                       {activeQuiz?.scrambledWords?.map((word, idx) => {
                         const isSelected = reorderSelection.includes(idx);
                         return (
@@ -2632,10 +2632,10 @@ export default function App() {
                             onClick={() => {
                               setReorderSelection(prev => [...prev, idx]);
                             }}
-                            className={`px-2.5 py-1 sm:px-3 sm:py-1.5 border text-xs sm:text-sm font-black font-sans transition rounded-lg ${
+                            className={`px-4 py-2 sm:px-5 sm:py-2.5 border text-base sm:text-lg md:text-2xl font-black font-sans transition rounded-lg ${
                               isSelected 
                                 ? 'bg-zinc-900 border-zinc-800 text-zinc-700 opacity-30 cursor-not-allowed' 
-                                : 'bg-black border-white text-white hover:bg-white hover:text-black cursor-pointer shadow-[0_1.5px_0_#fff] active:scale-90'
+                                : 'bg-black border-white text-white hover:bg-white hover:text-black cursor-pointer shadow-[0_2px_0_#fff] active:scale-90'
                             }`}
                           >
                             {word}
@@ -2644,11 +2644,11 @@ export default function App() {
                       })}
                     </div>
 
-                    <div className="flex gap-2 w-full justify-center">
+                    <div className="flex gap-2.5 w-full justify-center">
                       <button
                         onClick={() => setReorderSelection([])}
                         disabled={isFeedbackShowing || reorderSelection.length === 0}
-                        className="px-3 py-1 sm:px-4 sm:py-1.5 border border-white bg-black hover:bg-white hover:text-black font-sans font-extrabold text-[10px] sm:text-xs rounded-lg cursor-pointer active:scale-95 transition"
+                        className="px-4 py-2 sm:px-5 sm:py-2.5 border border-white bg-black hover:bg-white hover:text-black font-sans font-extrabold text-sm sm:text-base md:text-xl rounded-lg cursor-pointer active:scale-95 transition"
                       >
                         全部清除 🧹
                       </button>
@@ -2658,7 +2658,7 @@ export default function App() {
                           handleAnswerSubmit(built + "。");
                         }}
                         disabled={isFeedbackShowing || reorderSelection.length !== (activeQuiz?.scrambledWords?.length || 0)}
-                        className={`px-4 py-1 sm:px-5 sm:py-1.5 border border-white font-sans font-black text-[10px] sm:text-xs rounded-lg transition active:scale-95 ${
+                        className={`px-5 py-2 sm:px-6 sm:py-2.5 border border-white font-sans font-black text-sm sm:text-base md:text-xl rounded-lg transition active:scale-95 ${
                           reorderSelection.length === (activeQuiz?.scrambledWords?.length || 0)
                             ? 'bg-yellow-400 text-black hover:bg-white hover:text-black cursor-pointer shadow'
                             : 'bg-zinc-950 text-zinc-600 border-zinc-800 cursor-not-allowed'
@@ -2670,12 +2670,12 @@ export default function App() {
                   </div>
                 ) : activeQuiz?.subtype === 'match' ? (
                   /* Word Matching Columns Mode */
-                  <div className="w-full max-w-xl mx-auto bg-zinc-950 border-2 border-white rounded-xl p-2.5 mb-1.5 shadow-lg">
-                    <p className="text-center font-sans text-zinc-200 text-[10px] sm:text-xs font-extrabold mb-2.5">👉 請點擊一個英文與一個中文，將它們兩兩配對消除：</p>
-                    <div className="grid grid-cols-2 gap-3">
+                  <div className="w-full max-w-3xl mx-auto bg-zinc-950 border-2 border-white rounded-xl p-4 mb-2 shadow-lg">
+                    <p className="text-center font-sans text-zinc-200 text-base sm:text-xl md:text-2xl font-extrabold mb-4">👉 請點擊一個英文與一個中文，將它們兩兩配對消除：</p>
+                    <div className="grid grid-cols-2 gap-4">
                       {/* Left Column - English */}
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-center font-black text-[10px] sm:text-xs text-indigo-400 border-b border-indigo-400/20 pb-1 font-sans tracking-widest">ENGLISH 🔤</span>
+                      <div className="flex flex-col gap-2.5">
+                        <span className="text-center font-black text-sm sm:text-base md:text-xl text-indigo-400 border-b border-indigo-400/20 pb-1.5 font-sans tracking-widest">ENGLISH 🔤</span>
                         {shuffledLeft.map((val) => {
                           const isMatched = matchedPairs.includes(val);
                           const isSelected = matchLeftSelected === val;
@@ -2684,14 +2684,14 @@ export default function App() {
                               key={val}
                               disabled={isMatched || isFeedbackShowing}
                               onClick={() => handleMatchClick('left', val)}
-                              className={`py-1.5 px-2 sm:py-2.5 sm:px-3 border border-white font-black font-sans text-center rounded-lg text-xs sm:text-sm transition-all duration-100 active:scale-95 ${
+                              className={`py-3 px-3 sm:py-4.5 sm:px-4 border border-white font-black font-sans text-center rounded-lg text-base sm:text-xl md:text-2xl lg:text-[28px] transition-all duration-100 active:scale-95 ${
                                 isMatched 
                                   ? 'bg-zinc-900 border-zinc-800 text-zinc-700 line-through opacity-30 cursor-not-allowed'
                                   : isSelected
                                     ? matchErrorFlash 
                                       ? 'bg-red-600 border-red-500 text-white shadow-md shadow-red-500/50 scale-102' 
                                       : 'bg-indigo-600 text-white border-white shadow-md scale-102'
-                                    : 'bg-black border-white text-white hover:bg-white hover:text-black cursor-pointer shadow-[0_1.5px_0_#fff]'
+                                    : 'bg-black border-white text-white hover:bg-white hover:text-black cursor-pointer shadow-[0_2.5px_0_#fff]'
                               }`}
                             >
                               {val}
@@ -2701,8 +2701,8 @@ export default function App() {
                       </div>
 
                       {/* Right Column - Chinese */}
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-center font-black text-[10px] sm:text-xs text-yellow-400 border-b border-yellow-400/20 pb-1 font-sans tracking-widest">中文翻譯 🧧</span>
+                      <div className="flex flex-col gap-2.5">
+                        <span className="text-center font-black text-sm sm:text-base md:text-xl text-yellow-400 border-b border-yellow-400/20 pb-1.5 font-sans tracking-widest">中文翻譯 🧧</span>
                         {shuffledRight.map((val) => {
                           const pair = activeQuiz?.matchPairs?.find(p => p.right === val);
                            const isMatched = pair ? matchedPairs.includes(pair.left) : false;
@@ -2712,14 +2712,14 @@ export default function App() {
                               key={val}
                               disabled={isMatched || isFeedbackShowing}
                               onClick={() => handleMatchClick('right', val)}
-                              className={`py-1.5 px-2 sm:py-2.5 sm:px-3 border border-white font-black font-sans text-center rounded-lg text-xs sm:text-sm transition-all duration-100 active:scale-95 ${
+                              className={`py-3 px-3 sm:py-4.5 sm:px-4 border border-white font-black font-sans text-center rounded-lg text-base sm:text-xl md:text-2xl lg:text-[28px] transition-all duration-100 active:scale-95 ${
                                 isMatched 
                                   ? 'bg-zinc-900 border-zinc-800 text-zinc-700 line-through opacity-30 cursor-not-allowed'
                                   : isSelected
                                     ? matchErrorFlash 
                                       ? 'bg-red-600 border-red-500 text-white shadow-md shadow-red-500/50 scale-102' 
                                       : 'bg-yellow-500 text-black border-white shadow-md scale-102'
-                                    : 'bg-black border-white text-white hover:bg-white hover:text-black cursor-pointer shadow-[0_1.5px_0_#fff]'
+                                    : 'bg-black border-white text-white hover:bg-white hover:text-black cursor-pointer shadow-[0_2.5px_0_#fff]'
                               }`}
                             >
                               {val}
@@ -2729,19 +2729,19 @@ export default function App() {
                       </div>
                     </div>
                     
-                    <div className="text-center text-[10px] text-zinc-400 mt-2 font-sans font-black tracking-widest">
-                      🎯 配對進度: <span className="text-yellow-400 text-xs">{matchedPairs.length}</span> / {activeQuiz?.matchPairs?.length || 4}
+                    <div className="text-center text-sm sm:text-base text-zinc-400 mt-4 font-sans font-black tracking-widest">
+                      🎯 配對進度: <span className="text-yellow-400 font-bold text-base sm:text-lg">{matchedPairs.length}</span> / {activeQuiz?.matchPairs?.length || 4}
                     </div>
                   </div>
                 ) : (
                   /* Standard 4-Option Multiple Choice Grid */
                   <>
                     {/* Prompt Instruction */}
-                    <p className="text-zinc-300 text-xs sm:text-sm mb-2 text-center font-black tracking-wider">
+                    <p className="text-zinc-300 text-base sm:text-xl md:text-2xl mb-3 text-center font-black tracking-wider">
                       👉 選擇防禦指令以反擊：
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {(activeQuiz?.options || [])
                         .filter(opt => opt !== samuraiExcludedOption)
                         .map((opt, idx) => {
@@ -2754,7 +2754,7 @@ export default function App() {
                             id={`option-btn-${idx}`}
                             onClick={() => handleAnswerSubmit(opt)}
                             disabled={isFeedbackShowing || !!flashingOption}
-                            className={`py-2.5 px-3.5 sm:py-3.5 sm:px-4 text-left font-sans font-black transition-all duration-75 border-2 border-white rounded-xl flex flex-row items-center justify-between gap-3 active:scale-95 shadow-[0_2px_0_#fff] ${
+                            className={`py-4 px-4 sm:py-5 sm:px-6 text-left font-sans font-black transition-all duration-75 border-2 border-white rounded-xl flex flex-row items-center justify-between gap-3 active:scale-95 shadow-[0_4px_0_#fff] ${
                               isFlashing 
                                 ? 'animate-rpg-flash' 
                                 : isSelected 
@@ -2762,23 +2762,23 @@ export default function App() {
                                   : 'bg-black text-white hover:bg-white hover:text-black cursor-pointer'
                             }`}
                           >
-                            <span className="flex items-center gap-2 sm:gap-3.5 w-full justify-start text-left">
+                            <span className="flex items-center gap-3 sm:gap-4.5 w-full justify-start text-left">
                               <span 
-                                className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 border border-white/40 shadow-sm transition-transform duration-100"
+                                className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center shrink-0 border border-white/40 shadow-sm transition-transform duration-100"
                                 style={{ 
                                   backgroundColor: idx === 0 ? '#b91c1c' : idx === 1 ? '#1d4ed8' : idx === 2 ? '#6b21a8' : '#9a3412'
                                 }}
                               >
-                                <span className="text-sm sm:text-xl select-none">
+                                <span className="text-xl sm:text-2xl md:text-3xl select-none">
                                   {idx === 0 && "⚔️"}
                                   {idx === 1 && "🛡️"}
                                   {idx === 2 && "🔮"}
                                   {idx === 3 && "🏃"}
                                 </span>
                               </span>
-                              <span className="leading-tight break-words text-sm sm:text-base md:text-lg font-black tracking-wide">{opt}</span>
+                              <span className="leading-tight break-words text-lg sm:text-xl md:text-2xl lg:text-[38px] font-black tracking-wide">{opt}</span>
                             </span>
-                            <span className={`text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-md border shrink-0 uppercase tracking-wider whitespace-nowrap ${
+                            <span className={`text-xs sm:text-sm md:text-base font-black px-2.5 py-1 rounded-md border shrink-0 uppercase tracking-wider whitespace-nowrap ${
                               idx === 0 ? 'bg-red-950 text-red-400 border-red-800' :
                               idx === 1 ? 'bg-blue-950 text-blue-400 border-blue-800' :
                               idx === 2 ? 'bg-purple-950 text-purple-400 border-purple-800' :
@@ -2843,7 +2843,7 @@ export default function App() {
                     </div>
 
                     {/* Dramatic Action Feedback */}
-                    <h4 className={`text-base sm:text-lg font-extrabold mb-2 font-mono tracking-wide ${isAnswerCorrect ? 'text-green-400' : 'text-red-500'}`}>
+                    <h4 className={`text-lg sm:text-xl md:text-2xl font-black mb-3 font-mono tracking-wide ${isAnswerCorrect ? 'text-green-400' : 'text-red-500'}`}>
                       {isAnswerCorrect 
                         ? `💥 Jovan 發動了暴擊！${activeMonsterName || '怪獸'} HP -50！` 
                         : `🛡️ Jovan 守備失誤！遭受了 ${activeMonsterName || '怪獸'} 的強力反擊！`
@@ -2851,14 +2851,14 @@ export default function App() {
                     </h4>
 
                     {/* Explanatory Scroll Box */}
-                    <div className="bg-zinc-950 border border-double border-white p-3 max-w-lg text-left text-white text-xs sm:text-sm mb-2.5 leading-relaxed w-full rounded-xl">
-                      <p className="font-bold text-yellow-400 mb-0.5 text-xs">
+                    <div className="bg-zinc-950 border border-double border-white p-4 max-w-xl text-left text-white text-sm sm:text-base mb-3 leading-relaxed w-full rounded-xl">
+                      <p className="font-bold text-yellow-400 mb-1 text-sm">
                         📜 戰鬥結算紀錄：
                       </p>
-                      <p className="mb-1 text-[11px] sm:text-xs">
-                        正確解答是：<span className="text-green-400 font-extrabold underline text-sm sm:text-base">{activeQuiz?.correctAnswer}</span>
+                      <p className="mb-2 text-xs sm:text-sm font-bold">
+                        正確解答是：<span className="text-green-400 font-black underline text-base sm:text-lg md:text-xl ml-1">{activeQuiz?.correctAnswer}</span>
                       </p>
-                      <p className="text-zinc-300 italic text-[11px] sm:text-xs">
+                      <p className="text-zinc-300 italic text-xs sm:text-sm leading-relaxed border-t border-dashed border-zinc-800 pt-2 mt-1">
                         "{activeQuiz?.explanation}"
                       </p>
                     </div>
@@ -2867,10 +2867,10 @@ export default function App() {
                     <button
                       id="close-feedback-btn"
                       onClick={handleCloseFeedback}
-                      className="px-5 py-2 bg-black border-2 border-white text-white hover:bg-white hover:text-black font-mono font-bold text-xs sm:text-sm transition duration-150 flex items-center gap-1 cursor-pointer active:scale-95 rounded-lg"
+                      className="px-6 py-3 bg-black border-2 border-white text-white hover:bg-white hover:text-black font-mono font-black text-sm sm:text-base md:text-lg transition duration-150 flex items-center gap-2 cursor-pointer active:scale-95 rounded-lg shadow-[0_2px_0_#fff]"
                     >
                       <span>［ {isAnswerCorrect ? '進行致命一擊 ⚔️' : '重新整裝防禦 🛡️'} ］</span>
-                      <ChevronRight size={14} />
+                      <ChevronRight size={18} />
                     </button>
                   </motion.div>
                 )}

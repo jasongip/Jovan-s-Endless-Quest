@@ -1035,12 +1035,22 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   public resolveCombat(correct: boolean, isDefeated: boolean = true) {
-    if (!this.activeMonsterSprite) return;
+    if (!this.activeMonsterSprite) {
+      this.activeMonsterId = null;
+      this.activeMonsterSprite = null;
+      return;
+    }
     
     const monsterSprite = this.activeMonsterSprite;
     const monsterX = monsterSprite.x;
     const monsterY = monsterSprite.y;
     const isPet = monsterSprite.getData('type') === 'pet';
+    
+    // Safety check to ensure references are cleared immediately upon defeat or escape
+    if (isPet || (correct && isDefeated)) {
+      this.activeMonsterId = null;
+      this.activeMonsterSprite = null;
+    }
     
     if (isPet) {
       if (correct) {
@@ -1066,14 +1076,13 @@ export class DungeonScene extends Phaser.Scene {
               angle: 360,
               duration: 350,
               onComplete: () => {
-                this.monstersGroup.remove(monsterSprite);
-                monsterSprite.destroy();
+                if (monsterSprite && monsterSprite.active) {
+                  this.monstersGroup.remove(monsterSprite);
+                  monsterSprite.destroy();
+                }
                 this.checkPortalUnlockStatus();
               }
             });
-            
-            this.activeMonsterId = null;
-            this.activeMonsterSprite = null;
           }
         });
       } else {
@@ -1090,14 +1099,13 @@ export class DungeonScene extends Phaser.Scene {
           angle: 180,
           duration: 350,
           onComplete: () => {
-            this.monstersGroup.remove(monsterSprite);
-            monsterSprite.destroy();
+            if (monsterSprite && monsterSprite.active) {
+              this.monstersGroup.remove(monsterSprite);
+              monsterSprite.destroy();
+            }
             this.checkPortalUnlockStatus();
           }
         });
-        
-        this.activeMonsterId = null;
-        this.activeMonsterSprite = null;
       }
       return;
     }
@@ -1112,10 +1120,14 @@ export class DungeonScene extends Phaser.Scene {
         this.showFloatingText(monsterX, monsterY - 20, "命中！💥", "#facc15");
         
         // Flash the monster red
-        monsterSprite.setTint(0xff0000);
-        this.time.delayedCall(250, () => {
-          monsterSprite.clearTint();
-        });
+        if (monsterSprite && monsterSprite.active) {
+          monsterSprite.setTint(0xff0000);
+          this.time.delayedCall(250, () => {
+            if (monsterSprite && monsterSprite.active) {
+              monsterSprite.clearTint();
+            }
+          });
+        }
         return;
       }
 
@@ -1141,8 +1153,10 @@ export class DungeonScene extends Phaser.Scene {
             angle: 360,
             duration: 350,
             onComplete: () => {
-              this.monstersGroup.remove(monsterSprite);
-              monsterSprite.destroy();
+              if (monsterSprite && monsterSprite.active) {
+                this.monstersGroup.remove(monsterSprite);
+                monsterSprite.destroy();
+              }
               
               // Clear any running boss environmental effect loops immediately upon defeat
               this.bossTimerEvents.forEach(e => {
@@ -1172,12 +1186,10 @@ export class DungeonScene extends Phaser.Scene {
               this.checkPortalUnlockStatus();
             }
           });
-          
-          this.activeMonsterId = null;
-          this.activeMonsterSprite = null;
         }
       });
     } else {
+      // Wrong answer
       this.tweens.add({
         targets: monsterSprite,
         x: this.player.x,
@@ -1191,10 +1203,12 @@ export class DungeonScene extends Phaser.Scene {
           RetroSFX.playHurt();
           
           const bodySprite = this.player.list[0];
-          bodySprite.setTint(0xff0000);
-          this.time.delayedCall(300, () => {
-            bodySprite.clearTint();
-          });
+          if (bodySprite && bodySprite.setTint) {
+            bodySprite.setTint(0xff0000);
+            this.time.delayedCall(300, () => {
+              if (bodySprite && bodySprite.clearTint) bodySprite.clearTint();
+            });
+          }
 
           this.showFloatingText(this.player.x, this.player.y - 30, "哎呀！HP -1 ❤️", "#ef4444");
           
@@ -1943,14 +1957,14 @@ export class DungeonScene extends Phaser.Scene {
         colorAccent = '#c084fc';
         break;
       case 'Dark':
-        colorPrimary = '#6b21a8';
-        colorSecondary = '#3b0764';
-        colorAccent = '#d8b4fe';
+        colorPrimary = '#8b5cf6';
+        colorSecondary = '#4c1d95';
+        colorAccent = '#e9d5ff';
         break;
       case 'Earth':
         colorPrimary = '#78350f';
         colorSecondary = '#b45309';
-        colorAccent = '#eab308';
+        colorAccent = '#fbbf24';
         break;
     }
     
@@ -1971,19 +1985,82 @@ export class DungeonScene extends Phaser.Scene {
     const startY = Math.floor((96 - cellSize * size) / 2);
     
     const mid = Math.floor(size / 2);
+
+    // Identify boss semantic archetype from name to dynamically alter silhouette design
+    let style: 'dragon' | 'golem' | 'beast' | 'slime' = 'golem';
+    const bName = bossData.name.toLowerCase();
+    if (bName.includes('dragon') || bName.includes('phoenix') || bName.includes('tengu') || bName.includes('gazer')) {
+      style = 'dragon';
+    } else if (bName.includes('giant') || bName.includes('colossus') || bName.includes('overlord') || bName.includes('skeleton') || bName.includes('queen')) {
+      style = 'golem';
+    } else if (bName.includes('slime') || bName.includes('decay') || bName.includes('core') || bName.includes('phantom')) {
+      style = 'slime';
+    } else {
+      style = 'beast';
+    }
     
     // Render symmetrical pixel art monster grid!
     for (let r = 0; r < size; r++) {
       for (let c = 0; c <= mid; c++) {
         let fillType = 0; // 0: empty, 1: primary, 2: secondary, 3: accent
         
-        if (r === 0 || r === size - 1 || c === 0) {
-          if (random() < 0.28) fillType = 3; // horns / tails / accent tips
-        } else {
+        if (style === 'slime') {
+          // Circular slime or gelatinous body shape
+          const dx = c - mid;
+          const dy = r - mid;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist <= mid * 0.95) {
+            const val = random();
+            fillType = val < 0.45 ? 1 : (val < 0.8 ? 2 : 3);
+          }
+        } else if (style === 'dragon') {
+          // Dragon or winged beast style: sweepy wings on outer columns, spikes on head
           const val = random();
-          if (val < 0.38) fillType = 1;
-          else if (val < 0.68) fillType = 2;
-          else if (val < 0.78) fillType = 3;
+          if (c <= 1 && r >= Math.floor(size / 3) && r <= size - 3) {
+            // Draw prominent wings
+            if (val < 0.8) fillType = 3;
+          } else if (r <= 2 && c >= 1 && c <= 3) {
+            // Distinct head horns
+            if (r === 0 && c === 1) fillType = 3;
+            if (r === 1 && c >= 1 && c <= 2) fillType = 1;
+            if (r === 2 && c >= 1 && c <= 3) fillType = 2;
+          } else {
+            // Core dragon body
+            if (c > 1) {
+              if (val < 0.45) fillType = 1;
+              else if (val < 0.8) fillType = 2;
+              else if (val < 0.95) fillType = 3;
+            }
+          }
+        } else if (style === 'golem') {
+          // Heavy armored / giant style: blocky shoulders, dense chest energy crystal
+          const val = random();
+          if (r >= 2 && r <= 4) {
+            // Broad sturdy shoulders
+            if (c >= 1) fillType = val < 0.6 ? 1 : 2;
+          } else if (r >= 5 && r <= size - 2) {
+            // Solid, heavy mechanical torso
+            if (c >= 2) fillType = val < 0.55 ? 1 : 2;
+          } else if (r <= 1) {
+            // Symmetrical crown or heavy helmet
+            if (c >= 2 && c <= mid) fillType = 3;
+          }
+          // Embedded energy core in the center of the chest
+          if (r === mid && c === mid) {
+            fillType = 3;
+          }
+        } else {
+          // Beast / wolf style: fangs at the bottom rows, animal stance
+          const val = random();
+          if (r === size - 1 && (c === 1 || c === 2)) {
+            // Sharp protruding claws or fangs
+            fillType = 3;
+          } else if (r >= 3 && r <= size - 2) {
+            // Grounded quadruple-leg stance
+            if (c >= 1) fillType = val < 0.55 ? 1 : 2;
+          } else {
+            if (c >= 2) fillType = val < 0.4 ? 1 : (val < 0.85 ? 2 : 3);
+          }
         }
         
         // Ensure central columns are solid so it doesn't look disconnected
@@ -2008,19 +2085,56 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     
-    // Overlay glowing evil boss eyes at 1/3 height
-    ctx.fillStyle = '#ff3b30';
-    const eyeRow = Math.max(1, Math.floor(size / 3.5));
-    const eyeColLeft = Math.max(1, Math.floor(size / 4.5));
-    const eyeColRight = size - 1 - eyeColLeft;
-    
-    ctx.fillRect(startX + eyeColLeft * cellSize + 2, startY + eyeRow * cellSize + 2, cellSize - 4, cellSize - 4);
-    ctx.fillRect(startX + eyeColRight * cellSize + 2, startY + eyeRow * cellSize + 2, cellSize - 4, cellSize - 4);
-    
-    // Give eyes a glowing white pupil
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(startX + eyeColLeft * cellSize + 4, startY + eyeRow * cellSize + 4, 3, 3);
-    ctx.fillRect(startX + eyeColRight * cellSize + 4, startY + eyeRow * cellSize + 4, 3, 3);
+    // Customize eye styling based on archetype
+    if (style === 'slime' && bName.includes('gazer')) {
+      // Void Shadow Gazer (boss_13) gets a giant single vertical cyclops eye
+      const eyeX = startX + mid * cellSize + cellSize / 2;
+      const eyeY = startY + Math.floor(size / 2.5) * cellSize + cellSize / 2;
+      const eyeRadius = cellSize * 1.5;
+      
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(eyeX, eyeY, eyeRadius + 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(eyeX, eyeY, eyeRadius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = colorPrimary;
+      ctx.beginPath();
+      ctx.arc(eyeX, eyeY, eyeRadius * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(eyeX, eyeY, eyeRadius * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(eyeX - 1, eyeY - 2, 3, 3);
+    } else {
+      // Standard two eyes with custom color offsets (Ice has white, Dark has yellow, etc.)
+      let eyeColor = '#ff3b30'; // Red by default
+      if (bossData.element === 'Ice') eyeColor = '#ffffff';
+      if (bossData.element === 'Dark') eyeColor = '#fbbf24';
+      if (bossData.element === 'Poison') eyeColor = '#a855f7';
+      if (bossData.element === 'Lightning') eyeColor = '#00f2fe';
+
+      ctx.fillStyle = eyeColor;
+      const eyeRow = Math.max(1, Math.floor(size / 3.5));
+      const eyeColLeft = Math.max(1, Math.floor(size / 4.5));
+      const eyeColRight = size - 1 - eyeColLeft;
+      
+      ctx.fillRect(startX + eyeColLeft * cellSize + 2, startY + eyeRow * cellSize + 2, cellSize - 4, cellSize - 4);
+      ctx.fillRect(startX + eyeColRight * cellSize + 2, startY + eyeRow * cellSize + 2, cellSize - 4, cellSize - 4);
+      
+      // Symmetrical white sparkling pupils
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(startX + eyeColLeft * cellSize + 4, startY + eyeRow * cellSize + 4, 3, 3);
+      ctx.fillRect(startX + eyeColRight * cellSize + 4, startY + eyeRow * cellSize + 4, 3, 3);
+    }
     
     canvas.refresh();
   }
