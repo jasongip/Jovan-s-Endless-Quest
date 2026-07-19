@@ -2488,9 +2488,15 @@ export default function App() {
                   <div className="flex justify-center mb-2">
                     <button
                       onClick={() => playTTS(activeQuiz.speechText!, activeQuiz.speechLang!)}
-                      className="px-3.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[10px] rounded-full flex items-center gap-1 animate-pulse cursor-pointer border border-white shadow"
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[11px] rounded-full flex items-center gap-1 animate-pulse cursor-pointer border border-white shadow transition-all active:scale-95"
                     >
-                      <span>🗣️ 點擊發音 (Click to Hear Word) 🔊</span>
+                      <span>
+                        {activeQuiz.speechLang?.startsWith('zh') 
+                          ? '🗣️ 點擊朗讀 / 重聽 (Click to Read / Replay) 🔊' 
+                          : activeQuiz.subtype === 'spelling' || activeQuiz.subtype === 'phonics'
+                            ? '🗣️ 點擊發音 (Click to Hear Word) 🔊'
+                            : '🗣️ Listen / Replay 🔊'}
+                      </span>
                     </button>
                   </div>
                 )}

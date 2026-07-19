@@ -1056,7 +1056,9 @@ export function generateLogicTimeQuestion(usedIds: string[] = []): QuizQuestion 
     question,
     options,
     correctAnswer,
-    explanation
+    explanation,
+    speechText: question.replace(/【.*?】\s*/g, ""),
+    speechLang: "zh-HK"
   };
 }
 
@@ -1138,7 +1140,9 @@ export function generateQuestion(
         question: `【學科挑戰 - 中文科】\n請選出最合適的漢字填補句子中的缺字：\n\n${qText}`,
         options: template?.options || [],
         correctAnswer: template?.correctAnswer || "",
-        explanation: template?.explanation || ""
+        explanation: template?.explanation || "",
+        speechText: qText.replace(/___+/g, "甚麼"),
+        speechLang: "zh-HK"
       };
     } else if (subtype === 'missing_stroke') {
       const unused = CHINESE_STROKE_TEMPLATES.filter(t => t && t.correctAnswer && !usedIds.includes(`zh_stroke_${t.correctAnswer}`));
@@ -1182,7 +1186,9 @@ export function generateQuestion(
         options: Array.from(optionsSet).sort(() => Math.random() - 0.5),
         correctAnswer: correctText,
         explanation: template?.scrambledExplanation || correctText,
-        scrambledWords: scrambledWords
+        scrambledWords: scrambledWords,
+        speechText: correctText,
+        speechLang: "zh-HK"
       };
     } else if (subtype === 'emoji_zh') {
       // Choose an item from EMOJI_ZH_DB
@@ -1693,10 +1699,10 @@ export function generateQuestion(
     const exists = ENGLISH_CLOZE_TEMPLATES.some(t => t.question.includes(wordObj.word));
     if (!exists) {
       ENGLISH_CLOZE_TEMPLATES.push({
-        question: `Can you spell the word "${wordObj.word.toLowerCase()}"? Yes, it is a ________.`,
+        question: `Which word matches this hint: "${wordObj.hint || ""}"? It is a ________.`,
         options: [wordObj.word.toLowerCase(), "pencil", "window", "orange"].sort(() => Math.random() - 0.5),
         correctAnswer: wordObj.word.toLowerCase(),
-        explanation: `The correct word is "${wordObj.word.toLowerCase()}" which fits the description.`
+        explanation: `The correct word is "${wordObj.word.toLowerCase()}" which matches the hint.`
       });
     }
   }
