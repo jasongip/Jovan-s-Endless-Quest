@@ -23,6 +23,11 @@ export const GameBridge = {
   onHpLost: null as ((amount: number) => void) | null,
   onHpHealed: null as ((amount: number) => void) | null,
   onLogUpdated: null as ((logMsg: string) => void) | null,
+  
+  // Floor persistence callbacks
+  onFloorStateCreated: null as ((floorState: any) => void) | null,
+  onEntityInteracted: null as ((entityId: string, updates: any) => void) | null,
+  onPlayerMoved: null as ((gridX: number, gridY: number) => void) | null,
 
   // React calls this to pass quiz results back into Phaser
   resolveCombat: (correct: boolean, isDefeated?: boolean) => {

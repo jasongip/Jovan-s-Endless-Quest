@@ -226,6 +226,7 @@ export default function App() {
   const [bossComboIndex, setBossComboIndex] = useState<number>(0);
   const [bossHp, setBossHp] = useState<number>(5);
   const [bossMistakes, setBossMistakes] = useState<number>(0);
+  const [activeMonsterId, setActiveMonsterId] = useState<string | null>(null);
   const [activeMonsterName, setActiveMonsterName] = useState<string>("");
   const [isElite, setIsElite] = useState<boolean>(false);
   const [eliteHp, setEliteHp] = useState<number>(1);
@@ -704,6 +705,7 @@ export default function App() {
       const monsterName = name || "怪獸";
       const hpVal = eliteHpVal || 1;
       
+      setActiveMonsterId(monsterId);
       setActiveMonsterName(monsterName);
       setIsElite(isEliteMonster);
       setEliteHp(hpVal);
@@ -826,13 +828,67 @@ export default function App() {
         
         return {
           ...prev,
-          currentFloor: nextFloor
+          currentFloor: nextFloor,
+          currentFloorState: null
         };
       });
     };
 
     GameBridge.onLogUpdated = (logMsg) => {
       pushLog(logMsg);
+    };
+
+    GameBridge.onFloorStateCreated = (floorState) => {
+      setGameState(prev => ({
+        ...prev,
+        currentFloorState: floorState
+      }));
+    };
+
+    GameBridge.onEntityInteracted = (entityId, updates) => {
+      setGameState(prev => {
+        if (!prev.currentFloorState || prev.currentFloorState.floor !== prev.currentFloor) {
+          return prev;
+        }
+        if (entityId === 'portal') {
+          return {
+            ...prev,
+            currentFloorState: {
+              ...prev.currentFloorState,
+              portalActive: !!updates.portalActive
+            }
+          };
+        }
+        const updatedEntities = prev.currentFloorState.entities.map(ent => {
+          if (ent.id === entityId) {
+            return { ...ent, ...updates };
+          }
+          return ent;
+        });
+        return {
+          ...prev,
+          currentFloorState: {
+            ...prev.currentFloorState,
+            entities: updatedEntities
+          }
+        };
+      });
+    };
+
+    GameBridge.onPlayerMoved = (gridX, gridY) => {
+      setGameState(prev => {
+        if (!prev.currentFloorState || prev.currentFloorState.floor !== prev.currentFloor) {
+          return prev;
+        }
+        return {
+          ...prev,
+          currentFloorState: {
+            ...prev.currentFloorState,
+            playerGridX: gridX,
+            playerGridY: gridY
+          }
+        };
+      });
     };
 
     return () => {
@@ -843,6 +899,9 @@ export default function App() {
       GameBridge.onPortalReached = null;
       GameBridge.onHpLost = null;
       GameBridge.onLogUpdated = null;
+      GameBridge.onFloorStateCreated = null;
+      GameBridge.onEntityInteracted = null;
+      GameBridge.onPlayerMoved = null;
     };
   }, [gameState.currentFloor]);
 
@@ -1008,7 +1067,12 @@ export default function App() {
     // Play dramatic 8-bit flashing interval
     setTimeout(() => {
       setSelectedOption(option);
-      const correct = option === activeQuiz.correctAnswer;
+      let correct = option === activeQuiz.correctAnswer;
+      if (activeQuiz.subtype === 'sentence_reorder') {
+        const normalize = (str: string) => 
+          str.replace(/[.,?!。，？！]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+        correct = normalize(option) === normalize(activeQuiz.correctAnswer);
+      }
       setIsAnswerCorrect(correct);
       setIsFeedbackShowing(true);
       setFlashingOption(null);
@@ -1268,6 +1332,9 @@ export default function App() {
             
             if (nextEliteHp > 0) {
               // Not yet defeated! Tell Phaser correct but not defeated
+              if (GameBridge.onEntityInteracted && activeMonsterId) {
+                GameBridge.onEntityInteracted(activeMonsterId, { eliteHp: nextEliteHp });
+              }
               GameBridge.resolveCombat(true, false);
               pushLog(`⚔️ 命中！精英怪獸【${activeMonsterName}】受到重擊，但它依然站立著！(剩餘 HP: ${nextEliteHp}/${eliteMaxHp})`);
               
@@ -1447,7 +1514,8 @@ export default function App() {
         maxHp: 5,
         goldCoins: 0,
         limitBreakBar: 0,
-        dFactorSlope: 0.2
+        dFactorSlope: 0.2,
+        currentFloorState: null
       };
     });
     pushLog(`💀 戰敗力竭！勇士 Jovan 的體力歸零，被魔法水晶傳送回「第 1 層」重頭開始！金幣與本局狀態已重置，但冒險生涯累積的 ${gameState.totalXP} XP 職業進度永久保留！🌟`);
@@ -1486,7 +1554,8 @@ export default function App() {
         const effMax = (prev.maxHp || 5) + (isDwarf ? 2 : 0);
         return {
           ...prev,
-          hp: effMax
+          hp: effMax,
+          currentFloorState: null
         };
       });
 
@@ -2101,6 +2170,7 @@ export default function App() {
                       equippedPetId={gameState.equippedPetId} 
                       selectedJobId={gameState.selectedJobId || 'warrior'}
                       devOverrides={isDevModeUnlocked ? devOverrides : undefined}
+                      currentFloorState={gameState.currentFloorState}
                     />
                     
                     {/* Floating Expand Book Button in top-right corner when collapsed */}
@@ -2633,7 +2703,7 @@ export default function App() {
                             }
                           }}
                           disabled={isFeedbackShowing}
-                          className="flex-1 py-2 sm:py-2.5 bg-black hover:bg-white hover:text-black border border-white font-mono text-xs sm:text-sm md:text-base font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
+                          className="flex-1 py-2.5 sm:py-3.5 bg-black hover:bg-white hover:text-black border-2 border-white/90 font-mono text-lg sm:text-xl md:text-2xl font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1.5px_0_#fff]"
                         >
                           {char}
                         </button>
@@ -2650,7 +2720,7 @@ export default function App() {
                             }
                           }}
                           disabled={isFeedbackShowing}
-                          className="flex-1 py-2 sm:py-2.5 bg-black hover:bg-white hover:text-black border border-white font-mono text-xs sm:text-sm md:text-base font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
+                          className="flex-1 py-2.5 sm:py-3.5 bg-black hover:bg-white hover:text-black border-2 border-white/90 font-mono text-lg sm:text-xl md:text-2xl font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1.5px_0_#fff]"
                         >
                           {char}
                         </button>
@@ -2661,7 +2731,7 @@ export default function App() {
                       <button
                         onClick={() => setSpellingInput(prev => prev.slice(0, -1))}
                         disabled={isFeedbackShowing}
-                        className="px-3 py-2 sm:py-2.5 bg-red-950 hover:bg-red-800 border border-red-500 font-mono text-[10px] sm:text-xs md:text-sm font-black text-red-200 rounded-md cursor-pointer active:scale-90 transition shadow-[0_1px_0_#f43f5e]"
+                        className="px-3 py-2.5 sm:py-3.5 bg-red-950 hover:bg-red-800 border-2 border-red-500 font-mono text-xs sm:text-sm md:text-base font-black text-red-200 rounded-md cursor-pointer active:scale-90 transition shadow-[0_1.5px_0_#f43f5e]"
                       >
                         ⌫ 退格
                       </button>
@@ -2674,7 +2744,7 @@ export default function App() {
                             }
                           }}
                           disabled={isFeedbackShowing}
-                          className="flex-1 py-2 sm:py-2.5 bg-black hover:bg-white hover:text-black border border-white font-mono text-xs sm:text-sm md:text-base font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1px_0_#fff]"
+                          className="flex-1 py-2.5 sm:py-3.5 bg-black hover:bg-white hover:text-black border-2 border-white/90 font-mono text-lg sm:text-xl md:text-2xl font-black text-white rounded-md cursor-pointer active:scale-90 transition-all shadow-[0_1.5px_0_#fff]"
                         >
                           {char}
                         </button>
@@ -2682,7 +2752,7 @@ export default function App() {
                       <button
                         onClick={() => setSpellingInput("")}
                         disabled={isFeedbackShowing}
-                        className="px-3 py-2 sm:py-2.5 bg-zinc-900 hover:bg-zinc-700 border border-white font-mono text-[10px] sm:text-xs md:text-sm font-black text-white rounded-md cursor-pointer active:scale-90 transition shadow-[0_1px_0_#fff]"
+                        className="px-3 py-2.5 sm:py-3.5 bg-zinc-900 hover:bg-zinc-700 border-2 border-white font-mono text-xs sm:text-sm md:text-base font-black text-white rounded-md cursor-pointer active:scale-90 transition shadow-[0_1.5px_0_#fff]"
                       >
                         重置
                       </button>
@@ -2706,7 +2776,9 @@ export default function App() {
                 ) : activeQuiz?.subtype === 'sentence_reorder' ? (
                   /* Sentence Reordering Block Mode */
                   <div className="flex flex-col gap-3 items-center w-full max-w-3xl mx-auto mb-1.5 bg-zinc-950 p-4 border-2 border-white rounded-xl shadow-lg">
-                    <p className="text-zinc-200 text-base sm:text-xl md:text-2xl mb-2 font-extrabold text-center">👉 請點擊下方的字塊組合成正確的中文句子：</p>
+                    <p className="text-zinc-200 text-base sm:text-xl md:text-2xl mb-2 font-extrabold text-center">
+                      👉 請點擊下方的字塊組合成正確的{activeQuiz?.type === 'english' ? '英文' : '中文'}句子：
+                    </p>
                     
                     <div className="w-full bg-zinc-900/60 border border-dashed border-white/60 p-3 rounded-lg min-h-[80px] flex flex-wrap justify-center items-center gap-2 mb-3">
                       {reorderSelection.length === 0 ? (
@@ -2762,8 +2834,11 @@ export default function App() {
                       </button>
                       <button
                         onClick={() => {
-                          const built = reorderSelection.map(idx => activeQuiz?.scrambledWords?.[idx] || "").join("");
-                          handleAnswerSubmit(built + "。");
+                          const isEnglish = activeQuiz?.type === 'english';
+                          const separator = isEnglish ? " " : "";
+                          const suffix = isEnglish ? "." : "。";
+                          const built = reorderSelection.map(idx => activeQuiz?.scrambledWords?.[idx] || "").join(separator);
+                          handleAnswerSubmit(built + suffix);
                         }}
                         disabled={isFeedbackShowing || reorderSelection.length !== (activeQuiz?.scrambledWords?.length || 0)}
                         className={`px-5 py-2 sm:px-6 sm:py-2.5 border border-white font-sans font-black text-sm sm:text-base md:text-xl rounded-lg transition active:scale-95 ${

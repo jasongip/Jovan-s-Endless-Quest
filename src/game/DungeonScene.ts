@@ -37,6 +37,7 @@ export class DungeonScene extends Phaser.Scene {
   private equippedPetId: string | null = null;
   private selectedJobId: string | null = null;
   private devOverrides: any = null;
+  private currentFloorState: any = null;
   private activeMonsterId: string | null = null;
   private activeMonsterSprite: any = null;
   
@@ -47,11 +48,12 @@ export class DungeonScene extends Phaser.Scene {
     super({ key: 'DungeonScene' });
   }
 
-  init(data: { floor?: number; equippedPetId?: string | null; selectedJobId?: string | null; devOverrides?: any }) {
+  init(data: { floor?: number; equippedPetId?: string | null; selectedJobId?: string | null; devOverrides?: any; floorState?: any }) {
     this.currentFloor = data.floor || 1;
     this.equippedPetId = data.equippedPetId || null;
     this.selectedJobId = data.selectedJobId || null;
     this.devOverrides = data.devOverrides || null;
+    this.currentFloorState = data.floorState || null;
     this.playerGridX = 1;
     this.playerGridY = 8;
     this.isMoving = false;
@@ -210,6 +212,14 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private generateMaze() {
+    if (this.currentFloorState && this.currentFloorState.floor === this.currentFloor && this.currentFloorState.grid) {
+      this.grid = JSON.parse(JSON.stringify(this.currentFloorState.grid));
+      this.playerGridX = this.currentFloorState.playerGridX;
+      this.playerGridY = this.currentFloorState.playerGridY;
+      this.portalActive = this.currentFloorState.portalActive;
+      return;
+    }
+
     this.grid = [];
     for (let r = 0; r < this.rows; r++) {
       const row: number[] = [];
@@ -326,6 +336,186 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private spawnEntities() {
+    if (this.currentFloorState && this.currentFloorState.floor === this.currentFloor && this.currentFloorState.entities) {
+      this.portalActive = this.currentFloorState.portalActive;
+      this.portalsGroup.getChildren().forEach((pObj: any) => {
+        pObj.setAlpha(this.portalActive ? 1.0 : 0.5);
+      });
+
+      this.currentFloorState.entities.forEach((ent: any) => {
+        if (ent.isInteracted) {
+          return;
+        }
+
+        const ex = ent.gridX * this.tileSize + this.tileSize / 2;
+        const ey = ent.gridY * this.tileSize + this.tileSize / 2;
+
+        if (ent.type === 'merchant' || ent.type === 'elf' || ent.type === 'campfire') {
+          let textureKey = 'campfire';
+          if (ent.type === 'merchant') textureKey = 'merchant';
+          else if (ent.type === 'elf') textureKey = 'elf';
+
+          const restEntity = this.add.sprite(ex, ey, textureKey);
+          restEntity.setData('type', ent.type);
+          restEntity.setData('gridX', ent.gridX);
+          restEntity.setData('gridY', ent.gridY);
+          restEntity.setData('id', ent.id || `rest_${ent.gridX}_${ent.gridY}`);
+          
+          this.tweens.add({
+            targets: restEntity,
+            scaleY: ent.type === 'campfire' ? 1.1 : 1.15,
+            duration: 900,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+          });
+          
+          this.merchantsGroup.add(restEntity);
+        }
+        else if (ent.type === 'boss') {
+          const bossData = BOSS_DATABASE.find(b => b.id === ent.bossDbId) || BOSS_DATABASE[0];
+          const bossTexKey = `boss_tex_${bossData.id}`;
+          
+          if (!this.textures.exists(bossTexKey)) {
+            this.createProceduralBossTexture(bossTexKey, bossData);
+          }
+
+          const boss = this.add.sprite(ex, ey, bossTexKey);
+          boss.setData('id', ent.id);
+          boss.setData('bossDbId', bossData.id);
+          boss.setData('gridX', ent.gridX);
+          boss.setData('gridY', ent.gridY);
+          boss.setData('type', 'boss');
+          boss.setData('bossData', bossData);
+
+          const baseScale = bossData.size === 13 ? 1.6 : 1.25;
+          boss.setScale(baseScale);
+          
+          this.tweens.add({
+            targets: boss,
+            y: ey - 8,
+            duration: 700,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+          });
+
+          let crownColor = 0xfacc15;
+          if (bossData.element === 'Ice') crownColor = 0x60a5fa;
+          if (bossData.element === 'Poison') crownColor = 0xa855f7;
+          if (bossData.element === 'Fire') crownColor = 0xef4444;
+          if (bossData.element === 'Dark') crownColor = 0xd8b4fe;
+          if (bossData.element === 'Lightning') crownColor = 0xffffff;
+
+          const crown = this.add.star(ex, ey - 45, 5, 5, 10, crownColor);
+          this.tweens.add({
+            targets: crown,
+            y: ey - 50,
+            angle: 360,
+            duration: 2500,
+            repeat: -1
+          });
+          
+          boss.on('destroy', () => {
+            crown.destroy();
+          });
+          
+          this.monstersGroup.add(boss);
+          this.startBossStageAnimations(bossData.element);
+        }
+        else if (ent.type === 'pet') {
+          const petData = PETS_DATABASE.find(p => p.id === ent.petDbId) || PETS_DATABASE[0];
+          this.spawnPet({ x: ent.gridX, y: ent.gridY }, petData, ent.id);
+        }
+        else if (ent.type === 'monster') {
+          const mKey = `monster_${ent.id}`;
+          if (!this.textures.exists(mKey)) {
+            const biomeType = (this.currentFloor <= 3 ? 'grass' : 
+                               this.currentFloor <= 6 ? 'cave' : 
+                               this.currentFloor <= 9 ? 'snow' : 
+                               this.currentFloor <= 12 ? 'volcano' : 'ruins') as 'grass' | 'cave' | 'snow' | 'volcano' | 'ruins';
+            const biomeMonsters = getMonstersByBiome(biomeType);
+            const foundMonster = biomeMonsters.find(m => m.name === ent.monsterName) || biomeMonsters[0] || { shape: 'slime', bodyColor: '#a855f7', accentColor: '#6b21a8' };
+            this.createProceduralMonsterTexture(mKey, foundMonster.shape, foundMonster.bodyColor, foundMonster.accentColor);
+          }
+
+          const monster = this.add.sprite(ex, ey, mKey);
+          monster.setData('id', ent.id);
+          monster.setData('gridX', ent.gridX);
+          monster.setData('gridY', ent.gridY);
+          monster.setData('type', ent.monsterType || 'math');
+          monster.setData('name', ent.monsterName || '怪獸');
+          monster.setData('isElite', ent.isElite || false);
+          monster.setData('eliteHp', ent.eliteHp || 1);
+          monster.setData('eliteMaxHp', ent.eliteMaxHp || 1);
+
+          if (ent.isElite) {
+            monster.setScale(1.3);
+            const eliteStar = this.add.star(ex, ey - 24, 4, 3, 6, 0xfacc15);
+            this.tweens.add({
+              targets: eliteStar,
+              y: ey - 28,
+              angle: 180,
+              duration: 1500,
+              yoyo: true,
+              repeat: -1
+            });
+            monster.on('destroy', () => {
+              eliteStar.destroy();
+            });
+          }
+
+          this.tweens.add({
+            targets: monster,
+            y: ey - 6,
+            duration: 800 + Math.random() * 400,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+          });
+
+          this.monstersGroup.add(monster);
+        }
+        else {
+          let textureKey = ent.type;
+          if (ent.type === 'bag') textureKey = 'money_bag';
+
+          const sprite = this.add.sprite(ex, ey, textureKey);
+          sprite.setData('type', ent.type);
+          sprite.setData('gridX', ent.gridX);
+          sprite.setData('gridY', ent.gridY);
+          sprite.setData('id', ent.id);
+
+          if (this.equippedPetId === 'pet_8' && (ent.type === 'chest' || ent.type === 'bag')) {
+            const beacon = this.add.graphics();
+            beacon.lineStyle(3, 0xeab308, 0.7);
+            beacon.strokeCircle(ex, ey, 22);
+            this.tweens.add({
+              targets: beacon,
+              scaleX: 1.5,
+              scaleY: 1.5,
+              alpha: 0,
+              duration: 1500,
+              repeat: -1
+            });
+          }
+
+          this.tweens.add({
+            targets: sprite,
+            scale: 1.1,
+            duration: 1000 + Math.random() * 500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+          });
+
+          this.interactivesGroup.add(sprite);
+        }
+      });
+
+      return;
+    }
+
     const eligibleCells: { x: number; y: number }[] = [];
     
     for (let r = 1; r < this.rows - 1; r++) {
@@ -378,6 +568,8 @@ export class DungeonScene extends Phaser.Scene {
         else if (restType === 'elf') textureKey = 'elf';
 
         const restEntity = this.add.sprite(tx, ty, textureKey);
+        const restId = `rest_${centerCell.x}_${centerCell.y}`;
+        restEntity.setData('id', restId);
         restEntity.setData('type', restType);
         restEntity.setData('gridX', centerCell.x);
         restEntity.setData('gridY', centerCell.y);
@@ -623,6 +815,8 @@ export class DungeonScene extends Phaser.Scene {
         if (type === 'bag') textureKey = 'money_bag';
 
         const sprite = this.add.sprite(cx, cy, textureKey);
+        const interactiveId = `interactive_${cell.x}_${cell.y}`;
+        sprite.setData('id', interactiveId);
         sprite.setData('type', type);
         sprite.setData('gridX', cell.x);
         sprite.setData('gridY', cell.y);
@@ -662,6 +856,59 @@ export class DungeonScene extends Phaser.Scene {
       const py = pObj.getData('gridY');
       this.carvePath(this.playerGridX, this.playerGridY, px, py);
     });
+
+    if (!this.currentFloorState) {
+      const entitiesToSave: any[] = [];
+      
+      this.monstersGroup.getChildren().forEach((mObj: any) => {
+        entitiesToSave.push({
+          id: mObj.getData('id'),
+          type: mObj.getData('type') === 'boss' ? 'boss' : (mObj.getData('type') === 'pet' ? 'pet' : 'monster'),
+          gridX: mObj.getData('gridX'),
+          gridY: mObj.getData('gridY'),
+          isInteracted: false,
+          monsterType: mObj.getData('type'),
+          monsterName: mObj.getData('name'),
+          isElite: mObj.getData('isElite') || false,
+          eliteHp: mObj.getData('eliteHp') || 1,
+          eliteMaxHp: mObj.getData('eliteMaxHp') || 1,
+          petDbId: mObj.getData('petDbId'),
+          bossDbId: mObj.getData('bossDbId')
+        });
+      });
+
+      this.merchantsGroup.getChildren().forEach((merch: any) => {
+        entitiesToSave.push({
+          id: merch.getData('id') || `rest_${merch.getData('gridX')}_${merch.getData('gridY')}`,
+          type: merch.getData('type'),
+          gridX: merch.getData('gridX'),
+          gridY: merch.getData('gridY'),
+          isInteracted: false,
+          restType: merch.getData('type')
+        });
+      });
+
+      this.interactivesGroup.getChildren().forEach((iObj: any) => {
+        entitiesToSave.push({
+          id: iObj.getData('id') || `interactive_${iObj.getData('gridX')}_${iObj.getData('gridY')}`,
+          type: iObj.getData('type'),
+          gridX: iObj.getData('gridX'),
+          gridY: iObj.getData('gridY'),
+          isInteracted: false
+        });
+      });
+
+      const generatedFloorState = {
+        floor: this.currentFloor,
+        grid: this.grid,
+        playerGridX: this.playerGridX,
+        playerGridY: this.playerGridY,
+        portalActive: this.portalActive,
+        entities: entitiesToSave
+      };
+
+      this.safeCall(GameBridge.onFloorStateCreated, generatedFloorState);
+    }
   }
 
   private carvePath(x1: number, y1: number, x2: number, y2: number) {
@@ -764,6 +1011,7 @@ export class DungeonScene extends Phaser.Scene {
         this.isMoving = false;
         this.drawPathHighlights(this.pathQueue);
         this.checkCollisions();
+        this.safeCall(GameBridge.onPlayerMoved, tx, ty);
       }
     });
   }
@@ -898,6 +1146,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private triggerInteractive(iObj: any) {
     const type = iObj.getData('type');
+    this.safeCall(GameBridge.onEntityInteracted, iObj.getData('id'), { isInteracted: true });
     this.interactivesGroup.remove(iObj);
     
     this.tweens.add({
@@ -1202,6 +1451,7 @@ export class DungeonScene extends Phaser.Scene {
 
   public destroyMerchant() {
     this.merchantsGroup.getChildren().forEach((m: any) => {
+      this.safeCall(GameBridge.onEntityInteracted, m.getData('id'), { isInteracted: true });
       this.tweens.add({
         targets: m,
         scale: 0,
@@ -1234,6 +1484,8 @@ export class DungeonScene extends Phaser.Scene {
         this.showFloatingText(monsterSprite.x, monsterSprite.y - 30, "重創 -2 HP！💥", "#ef4444");
         return; // Skip boss
       }
+
+      this.safeCall(GameBridge.onEntityInteracted, monsterSprite.getData('id'), { isInteracted: true });
 
       const mx = monsterSprite.x;
       const my = monsterSprite.y;
@@ -2916,13 +3168,13 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
-  private spawnPet(cell: any, petData: PetData) {
+  private spawnPet(cell: any, petData: PetData, id?: string) {
     const px = cell.x * this.tileSize + this.tileSize / 2;
     const py = cell.y * this.tileSize + this.tileSize / 2;
     
     // Create a Container so we can stack multiple visual layers nicely
     const container = this.add.container(px, py);
-    container.setData('id', `pet_${Date.now()}_${Math.floor(Math.random() * 100)}`);
+    container.setData('id', id || `pet_${Date.now()}_${Math.floor(Math.random() * 100)}`);
     container.setData('gridX', cell.x);
     container.setData('gridY', cell.y);
     container.setData('type', 'pet'); // Essential for checkCollisions callback routing!

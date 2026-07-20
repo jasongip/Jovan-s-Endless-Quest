@@ -5,6 +5,30 @@
 
 import { QuizQuestion } from '../types';
 
+function shuffleWords(words: string[]): string[] {
+  if (words.length <= 1) return [...words];
+  let attempts = 0;
+  while (attempts < 20) {
+    let shuffled = [...words];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = shuffled[i];
+      shuffled[i] = shuffled[j];
+      shuffled[j] = temp;
+    }
+    let identical = true;
+    for (let i = 0; i < words.length; i++) {
+      if (shuffled[i] !== words[i]) {
+        identical = false;
+        break;
+      }
+    }
+    if (!identical) return shuffled;
+    attempts++;
+  }
+  return [...words].reverse();
+}
+
 // ============================================================================
 // 1. DATA DICTIONARIES (To support massive vocabulary and procedural questions)
 // ============================================================================
@@ -1186,7 +1210,7 @@ export function generateQuestion(
         options: Array.from(optionsSet).sort(() => Math.random() - 0.5),
         correctAnswer: correctText,
         explanation: template?.scrambledExplanation || correctText,
-        scrambledWords: scrambledWords,
+        scrambledWords: shuffleWords(scrambledWords),
         speechText: correctText,
         speechLang: "zh-HK"
       };
@@ -1296,7 +1320,7 @@ export function generateQuestion(
         options: [template.correctAnswer, "Dummy option 1", "Dummy option 2", "Dummy option 3"],
         correctAnswer: template.correctAnswer,
         explanation: `The correct sentence is: "${template.correctAnswer}"`,
-        scrambledWords: template.scrambledWords
+        scrambledWords: shuffleWords(template.scrambledWords)
       };
     }
   }

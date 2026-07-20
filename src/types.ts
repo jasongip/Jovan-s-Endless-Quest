@@ -22,6 +22,31 @@ export interface GameState {
   equippedPetId?: string | null;
   capturedPetIds?: string[];
   selectedJobId?: string; // Selected Job/Class ID
+  currentFloorState?: FloorState | null;
+}
+
+export interface FloorEntityState {
+  id: string;
+  type: 'monster' | 'boss' | 'chest' | 'bag' | 'rock' | 'skeleton' | 'merchant' | 'elf' | 'campfire' | 'pet';
+  gridX: number;
+  gridY: number;
+  isInteracted?: boolean;
+  monsterType?: string;
+  monsterName?: string;
+  isElite?: boolean;
+  eliteHp?: number;
+  eliteMaxHp?: number;
+  petDbId?: string;
+  restType?: string;
+}
+
+export interface FloorState {
+  floor: number;
+  grid: number[][];
+  playerGridX: number;
+  playerGridY: number;
+  portalActive: boolean;
+  entities: FloorEntityState[];
 }
 
 export interface QuizQuestion {

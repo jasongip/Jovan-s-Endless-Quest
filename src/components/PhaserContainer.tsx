@@ -16,9 +16,10 @@ interface PhaserContainerProps {
     eliteMode: string;
     chestMode: string;
   };
+  currentFloorState?: any;
 }
 
-export default function PhaserContainer({ currentFloor, equippedPetId, selectedJobId, devOverrides }: PhaserContainerProps) {
+export default function PhaserContainer({ currentFloor, equippedPetId, selectedJobId, devOverrides, currentFloorState }: PhaserContainerProps) {
   const gameRef = useRef<any>(null);
   const containerId = 'phaser-game-viewport';
   const [phaserReady, setPhaserReady] = useState(false);
@@ -83,7 +84,13 @@ export default function PhaserContainer({ currentFloor, equippedPetId, selectedJ
       gameRef.current = phaserGame;
       
       // Register and start scene with data in a single clean non-blocking call
-      phaserGame.scene.add('DungeonScene', DungeonScene, true, { floor: currentFloor, equippedPetId, selectedJobId, devOverrides });
+      phaserGame.scene.add('DungeonScene', DungeonScene, true, { 
+        floor: currentFloor, 
+        equippedPetId, 
+        selectedJobId, 
+        devOverrides,
+        floorState: currentFloorState 
+      });
     } catch (err) {
       console.error("Failed to initialize Phaser 3 Game instance:", err);
       setLoadError("初始化遊戲失敗，請重新整理網頁。");
@@ -107,7 +114,13 @@ export default function PhaserContainer({ currentFloor, equippedPetId, selectedJ
     if (gameRef.current && gameRef.current.scene) {
       const activeScene = gameRef.current.scene.getScene('DungeonScene');
       if (activeScene && gameRef.current.scene.isActive('DungeonScene')) {
-        activeScene.scene.restart({ floor: currentFloor, equippedPetId, selectedJobId, devOverrides });
+        activeScene.scene.restart({ 
+          floor: currentFloor, 
+          equippedPetId, 
+          selectedJobId, 
+          devOverrides,
+          floorState: currentFloorState
+        });
       }
     }
   }, [currentFloor, equippedPetId, selectedJobId, devOverrides]);
