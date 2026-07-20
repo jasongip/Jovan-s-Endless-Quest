@@ -899,6 +899,7 @@ export default function App() {
 
   const handleArcher5050 = () => {
     if (!activeQuiz || archerCharges <= 0 || isFeedbackShowing || flashingOption || archerExcludedOptions.length > 0) return;
+    if (activeQuiz.subtype === 'spelling' || activeQuiz.subtype === 'match' || activeQuiz.subtype === 'sentence_reorder') return;
     
     const correct = activeQuiz.correctAnswer;
     const wrongOptions = (activeQuiz.options || []).filter(opt => opt !== correct);
@@ -928,25 +929,13 @@ export default function App() {
       setIsElite(false);
     } else {
       setGameState(prev => ({ ...prev, hp: nextHp }));
-      pushLog(`💃✨【獻祭之舞】舞者優雅起舞，消耗 1 點生命值（當前 HP: ${nextHp}/${effectiveMaxHp}）！成功避開當前問題！🕊️`);
+      pushLog(`💃✨【獻祭之舞】舞者優雅起舞，消耗 1 點生命值（當前 HP: ${nextHp}/${effectiveMaxHp}）！成功施展獻祭之舞，直接將當前問題視為答對！🕊️`);
       RetroSFX.playHurt();
       
-      GameBridge.wipeAllMonsters(true);
-      setActiveQuiz(null);
-      setSelectedOption(null);
-      setIsFeedbackShowing(false);
-      setIsElite(false);
-
-      let foundKey: string | null = null;
-      for (const key in monsterQuestionsRef.current) {
-        if (monsterQuestionsRef.current[key]?.id === activeQuiz.id) {
-          foundKey = key;
-          break;
-        }
-      }
-      if (foundKey) {
-        delete monsterQuestionsRef.current[foundKey];
-      }
+      // Treat as correct and show feedback overlay to reap rewards
+      setIsAnswerCorrect(true);
+      setSelectedOption(activeQuiz.correctAnswer);
+      setIsFeedbackShowing(true);
     }
   };
 
@@ -2930,23 +2919,36 @@ export default function App() {
                     )}
 
                     {/* Archer 50/50 */}
-                    {gameState.selectedJobId === 'archer' && archerCharges > 0 && archerExcludedOptions.length === 0 && activeQuiz?.options && activeQuiz.options.length >= 3 && (
+                    {gameState.selectedJobId === 'archer' && archerCharges > 0 && (
                       <button
                         onClick={handleArcher5050}
-                        className="py-2 px-4 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-sans font-black text-xs rounded-xl flex items-center gap-2 border-2 border-teal-400 shadow-[0_3px_0_#0f766e] active:translate-y-0.5 active:shadow-[0_1px_0_#0f766e] transition-all cursor-pointer"
+                        disabled={activeQuiz?.subtype === 'spelling' || activeQuiz?.subtype === 'match' || activeQuiz?.subtype === 'sentence_reorder' || archerExcludedOptions.length > 0}
+                        className={`py-2 px-4 font-sans font-black text-xs rounded-xl flex items-center gap-2 border-2 transition-all cursor-pointer ${
+                          activeQuiz?.subtype === 'spelling' || activeQuiz?.subtype === 'match' || activeQuiz?.subtype === 'sentence_reorder' || archerExcludedOptions.length > 0
+                            ? 'bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed opacity-60'
+                            : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white border-teal-400 shadow-[0_3px_0_#0f766e] active:translate-y-0.5 active:shadow-[0_1px_0_#0f766e]'
+                        }`}
                       >
-                        <span>🏹 雙重鷹眼：［二選一］</span>
-                        <span className="bg-teal-950 text-teal-300 text-[9px] px-1.5 py-0.5 rounded-full border border-teal-800">剩餘 {archerCharges} 次</span>
+                        {activeQuiz?.subtype === 'spelling' || activeQuiz?.subtype === 'match' || activeQuiz?.subtype === 'sentence_reorder' ? (
+                          <span>🏹 雙重鷹眼：［❌ 配對拼字不適用］</span>
+                        ) : archerExcludedOptions.length > 0 ? (
+                          <span>🏹 雙重鷹眼：［已發動］</span>
+                        ) : (
+                          <>
+                            <span>🏹 雙重鷹眼：［二選一］</span>
+                            <span className="bg-teal-950 text-teal-300 text-[9px] px-1.5 py-0.5 rounded-full border border-teal-800">剩餘 {archerCharges} 次</span>
+                          </>
+                        )}
                       </button>
                     )}
 
                     {/* Dancer Skip (Sacrifice Dance) */}
-                    {gameState.selectedJobId === 'dancer' && !bossCombo && (
+                    {gameState.selectedJobId === 'dancer' && (
                       <button
                         onClick={handleDancerSkip}
                         className="py-2 px-4 bg-gradient-to-r from-rose-600 to-pink-700 hover:from-rose-500 hover:to-pink-600 text-white font-sans font-black text-xs rounded-xl flex items-center gap-2 border-2 border-pink-400 shadow-[0_3px_0_#be185d] active:translate-y-0.5 active:shadow-[0_1px_0_#be185d] transition-all cursor-pointer"
                       >
-                        <span>💃 獻祭之舞：［消耗 1 HP 避戰］</span>
+                        <span>💃 獻祭之舞：［消耗 1 HP 答對］</span>
                         <span className="bg-pink-950 text-pink-300 text-[9px] px-1.5 py-0.5 rounded-full border border-pink-800">可重複使用</span>
                       </button>
                     )}
@@ -3129,7 +3131,7 @@ export default function App() {
                               : 'bg-zinc-900 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50'
                           }`}
                         >
-                          {shakePrice} 🟡 購買
+                          {gameState.hp >= effectiveMaxHp ? "❤️ 已滿血" : `${shakePrice} 🟡 購買`}
                         </button>
                       </div>
 
@@ -3152,7 +3154,7 @@ export default function App() {
                               : 'bg-zinc-900 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50'
                           }`}
                         >
-                          {crystalPrice} 🟡 購買
+                          {gameState.maxHp >= shopMaxHpLimit ? "🚫 已達上限" : `${crystalPrice} 🟡 購買`}
                         </button>
                       </div>
 

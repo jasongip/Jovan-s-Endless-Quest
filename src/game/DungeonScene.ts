@@ -464,6 +464,10 @@ export class DungeonScene extends Phaser.Scene {
           repeat: -1
         });
         
+        boss.on('destroy', () => {
+          crown.destroy();
+        });
+        
         this.monstersGroup.add(boss);
         this.carvePath(this.playerGridX, this.playerGridY, centerCell.x, centerCell.y);
 
@@ -650,31 +654,6 @@ export class DungeonScene extends Phaser.Scene {
         this.interactivesGroup.add(sprite);
         this.carvePath(this.playerGridX, this.playerGridY, cell.x, cell.y);
       }
-    }
-
-    // Dancer (舞者) - 100% chance for an extra chest
-    if (this.selectedJobId === 'dancer' && eligibleCells.length > 0) {
-      const cell = eligibleCells.pop()!;
-      const cx = cell.x * this.tileSize + this.tileSize / 2;
-      const cy = cell.y * this.tileSize + this.tileSize / 2;
-      const sprite = this.add.sprite(cx, cy, 'chest');
-      sprite.setData('type', 'chest');
-      sprite.setData('gridX', cell.x);
-      sprite.setData('gridY', cell.y);
-      
-      this.tweens.add({
-        targets: sprite,
-        scale: 1.1,
-        duration: 1000 + Math.random() * 500,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut'
-      });
-      
-      this.interactivesGroup.add(sprite);
-      this.carvePath(this.playerGridX, this.playerGridY, cell.x, cell.y);
-      
-      this.safeCall(GameBridge.onLogUpdated, `💃 舞者輕盈步法發動：關卡中額外多生成了一個古老寶箱！🎁`);
     }
 
     // Carve reachable paths to all 3 portals!

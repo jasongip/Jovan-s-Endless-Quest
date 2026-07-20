@@ -74,7 +74,7 @@ export const JOBS: Job[] = [
     englishName: 'Dancer',
     emoji: '💃',
     skillName: '獻祭之舞',
-    skillDesc: '答題時，可選擇扣除 1 點生命值跳過避開當前問題，可重複使用直至體力耗盡死亡 💃。',
+    skillDesc: '答題時，可消耗 1 點生命值跳過當前問題並直接視為答對（可獲得正常金幣與 XP 獎勵），可重複使用。',
     unlockXP: 3500,
   },
   {
@@ -83,7 +83,7 @@ export const JOBS: Job[] = [
     englishName: 'Archer',
     emoji: '🏹',
     skillName: '雙重鷹眼',
-    skillDesc: '每場冒險有 10 次機會，可發動鷹眼專注將答題選項直接變成「二選一」（排除兩個錯誤解答）。',
+    skillDesc: '每場冒險有 10 次機會，可發動鷹眼專注將答題選項直接變成「二選一」（排除兩個錯誤解答。配對 / 拼字問題無法使用）。',
     unlockXP: 4000,
   },
   {
