@@ -139,7 +139,8 @@ export default function App() {
   // Job system states
   const [warriorShield, setWarriorShield] = useState<boolean>(false);
   const [hasMageTeleportUsed, setHasMageTeleportUsed] = useState<boolean>(false);
-  const [hasArcherAutoSolveUsed, setHasArcherAutoSolveUsed] = useState<boolean>(false);
+  const [archerCharges, setArcherCharges] = useState<number>(10);
+  const [archerExcludedOptions, setArcherExcludedOptions] = useState<string[]>([]);
   const [warlockCombo, setWarlockCombo] = useState<number>(0);
   const [samuraiExcludedOption, setSamuraiExcludedOption] = useState<string | null>(null);
   const [showJobSelectorModal, setShowJobSelectorModal] = useState<boolean>(false);
@@ -330,6 +331,34 @@ export default function App() {
       console.warn("SpeechSynthesis playTTS failed:", err);
     }
   };
+
+  // Google Analytics Dynamic Integration
+  useEffect(() => {
+    const measurementId = (import.meta as any).env?.VITE_GA_MEASUREMENT_ID;
+    if (measurementId && typeof window !== 'undefined') {
+      // Inject standard Google Analytics script tags dynamically
+      const script1 = document.createElement('script');
+      script1.async = true;
+      script1.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
+      document.head.appendChild(script1);
+
+      const script2 = document.createElement('script');
+      script2.innerHTML = `
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '${measurementId}');
+      `;
+      document.head.appendChild(script2);
+      
+      console.log(`[Google Analytics] Initialized with ID: ${measurementId}`);
+    }
+  }, []);
+
+  // Archer (弓箭手) options exclusion reset on new question
+  useEffect(() => {
+    setArcherExcludedOptions([]);
+  }, [activeQuiz]);
 
   // Samurai (武士) "心眼" ability: when HP is 1, automatically exclude one wrong answer (4 choices to 3 choices)
   useEffect(() => {
@@ -859,11 +888,57 @@ export default function App() {
     }
   };
 
-  const handleArcherAutoSolve = () => {
-    if (!activeQuiz || hasArcherAutoSolveUsed || isFeedbackShowing || flashingOption) return;
-    setHasArcherAutoSolveUsed(true);
-    pushLog("🏹 【精準偵察】弓箭手拉滿智慧神弓，射出一支偵察之箭！精準射中並鎖定了唯一正確解答！🎯");
-    handleAnswerSubmit(activeQuiz.correctAnswer);
+  const handleArcher5050 = () => {
+    if (!activeQuiz || archerCharges <= 0 || isFeedbackShowing || flashingOption || archerExcludedOptions.length > 0) return;
+    
+    const correct = activeQuiz.correctAnswer;
+    const wrongOptions = (activeQuiz.options || []).filter(opt => opt !== correct);
+    
+    if (wrongOptions.length >= 2) {
+      const shuffledWrong = [...wrongOptions].sort(() => Math.random() - 0.5);
+      const toExclude = [shuffledWrong[0], shuffledWrong[1]];
+      setArcherExcludedOptions(toExclude);
+      setArcherCharges(prev => prev - 1);
+      pushLog(`🏹【雙重鷹眼】弓箭手集中精力發動鷹眼專注！排除兩個錯誤答案，僅剩二選一！🎯 (剩餘次數：${archerCharges - 1} / 10)`);
+      RetroSFX.playShop();
+    }
+  };
+
+  const handleDancerSkip = () => {
+    if (!activeQuiz || isFeedbackShowing || flashingOption) return;
+    
+    const nextHp = gameState.hp - 1;
+    if (nextHp <= 0) {
+      setGameState(prev => ({ ...prev, hp: 0 }));
+      pushLog("💃🥀【獻祭之舞】舞者試圖施展極限獻祭之舞，但體力不支（HP 歸零）！不幸力竭戰敗！");
+      
+      GameBridge.resolveCombat(false, true);
+      setActiveQuiz(null);
+      setSelectedOption(null);
+      setIsFeedbackShowing(false);
+      setIsElite(false);
+    } else {
+      setGameState(prev => ({ ...prev, hp: nextHp }));
+      pushLog(`💃✨【獻祭之舞】舞者優雅起舞，消耗 1 點生命值（當前 HP: ${nextHp}/${effectiveMaxHp}）！成功避開當前問題！🕊️`);
+      RetroSFX.playHurt();
+      
+      GameBridge.wipeAllMonsters(true);
+      setActiveQuiz(null);
+      setSelectedOption(null);
+      setIsFeedbackShowing(false);
+      setIsElite(false);
+
+      let foundKey: string | null = null;
+      for (const key in monsterQuestionsRef.current) {
+        if (monsterQuestionsRef.current[key]?.id === activeQuiz.id) {
+          foundKey = key;
+          break;
+        }
+      }
+      if (foundKey) {
+        delete monsterQuestionsRef.current[foundKey];
+      }
+    }
   };
 
   const handleSelectJob = (jobId: string) => {
@@ -893,7 +968,8 @@ export default function App() {
     // Set initial skill states on switching job at Floor 1
     setWarriorShield(jobId === 'warrior');
     setHasMageTeleportUsed(false);
-    setHasArcherAutoSolveUsed(false);
+    setArcherCharges(10);
+    setArcherExcludedOptions([]);
     setWarlockCombo(0);
     setSamuraiExcludedOption(null);
   };
@@ -1224,6 +1300,16 @@ export default function App() {
               return;
             } else {
               // Defeated!
+              if (gameState.selectedJobId === 'thief') {
+                setGameState(prev => {
+                  const isDwarf = prev.selectedJobId === 'dwarf';
+                  const maxVal = (prev.maxHp || 5) + (isDwarf ? 2 : 0);
+                  const newHp = Math.min(maxVal, prev.hp + 1);
+                  return { ...prev, hp: newHp };
+                });
+                pushLog("🦊🧪【神偷秘藥】盜賊成功擊倒精英怪！順手牽羊偷到一瓶回復藥，自動回復了 1 點生命值！❤️");
+                RetroSFX.playShop();
+              }
               GameBridge.resolveCombat(true, true);
               setIsElite(false);
             }
@@ -1312,7 +1398,7 @@ export default function App() {
         hp: Math.min(effectiveMaxHp, prev.hp + 1),
         goldCoins: prev.goldCoins - cost
       }));
-      pushLog(`🥛 Jovan 購買並喝下了「特製草莓奶昔」！${isCleric ? '⛪ 修士折扣：半價！' : ''}生命值 +1 ❤️`);
+      pushLog(`🥛 Jovan 購買並喝下了「特製草莓奶昔」！${isCleric ? '⛪ 修士神聖恩賜：費用全免（0 金幣）！' : ''}生命值 +1 ❤️`);
       RetroSFX.playShop();
     } else if (itemType === 'crystal') {
       if (gameState.maxHp >= shopMaxHpLimit) {
@@ -1329,7 +1415,7 @@ export default function App() {
         };
       });
       const isDwarf = gameState.selectedJobId === 'dwarf';
-      pushLog(`💖 Jovan 融合了「活力心之結晶」！${isCleric ? '⛪ 修士折扣：半價！' : ''}最大生命上限增加至 ${gameState.maxHp + 1}${isDwarf ? '（外加矮人重裝體魄加成：有效上限為 ' + (gameState.maxHp + 3) + '）' : ''} ❤️！`);
+      pushLog(`💖 Jovan 融合了「活力心之結晶」！${isCleric ? '⛪ 修士神聖恩賜：費用全免（0 金幣）！' : ''}最大生命上限增加至 ${gameState.maxHp + 1}${isDwarf ? '（外加矮人重裝體魄加成：有效上限為 ' + (gameState.maxHp + 3) + '）' : ''} ❤️！`);
       RetroSFX.playShop();
     } else if (itemType === 'potion') {
       setGameState(prev => {
@@ -1340,7 +1426,7 @@ export default function App() {
         const nextState = awardXP(withCoins, 300);
         return nextState;
       });
-      pushLog(`✨ Jovan 飲用了「知識神聖藥水」，腦海中湧現無窮智慧！獲得 +300 XP 📖！`);
+      pushLog(`✨ Jovan 飲用了「知識神聖藥水」，腦海中湧現無窮智慧！${isCleric ? '⛪ 修士神聖恩賜：費用全免（0 金幣）！' : ''}獲得 +300 XP 📖！`);
       RetroSFX.playShop();
     }
 
@@ -1388,7 +1474,8 @@ export default function App() {
     // Reset job abilities on death
     setWarriorShield(gameState.selectedJobId === 'warrior');
     setHasMageTeleportUsed(false);
-    setHasArcherAutoSolveUsed(false);
+    setArcherCharges(10);
+    setArcherExcludedOptions([]);
     setWarlockCombo(0);
     setSamuraiExcludedOption(null);
   };
@@ -1403,7 +1490,8 @@ export default function App() {
     if (gameState.currentFloor === 1) {
       setWarriorShield(gameState.selectedJobId === 'warrior');
       setHasMageTeleportUsed(false);
-      setHasArcherAutoSolveUsed(false);
+      setArcherCharges(10);
+      setArcherExcludedOptions([]);
       setWarlockCombo(0);
       setSamuraiExcludedOption(null);
 
@@ -1443,9 +1531,9 @@ export default function App() {
   const effectiveMaxHp = (gameState.maxHp || 5) + (gameState.selectedJobId === 'dwarf' ? 2 : 0);
   const currentJob = getJobById(gameState.selectedJobId || 'warrior') || JOBS[0];
   const isCleric = gameState.selectedJobId === 'cleric';
-  const shakePrice = isCleric ? 5 : 10;
-  const crystalPrice = isCleric ? 25 : 50;
-  const potionPrice = 100;
+  const shakePrice = isCleric ? 0 : 10;
+  const crystalPrice = isCleric ? 0 : 50;
+  const potionPrice = isCleric ? 0 : 100;
   const shopMaxHpLimit = gameState.selectedJobId === 'dwarf' ? 10 : 8;
 
   // Generate date markers for the past 7 days to draw the visual quest log
@@ -1660,6 +1748,12 @@ export default function App() {
                   {/* Floor Selector inside Hero Card replaced with display-only text */}
                   <div className="text-center text-xs sm:text-sm text-yellow-300/85 font-mono tracking-wider animate-pulse font-bold mt-1 bg-slate-900/50 p-3 rounded-xl border border-slate-850">
                     👑 歷史最高挑戰記錄：第 {gameState.maxFloorReached} 層 • 目前蓄勢攀登：第 {gameState.currentFloor} 層
+                  </div>
+
+                  {/* Version & Last Update info row */}
+                  <div className="mt-2 pt-2 border-t border-indigo-950/80 flex flex-row items-center justify-between text-[10px] text-indigo-400/80 font-mono tracking-wider">
+                    <span>版本: v2.6.0-RELEASE</span>
+                    <span>更新: 2026-07-20 12:00</span>
                   </div>
                 </div>
 
@@ -1981,15 +2075,7 @@ export default function App() {
 
           </div>
 
-          {/* Footer with Version & Last Update */}
-          <div className="mt-8 pt-4 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] sm:text-xs text-slate-500 font-mono tracking-wider w-full">
-            <div>
-              <span>系統版本 (VERSION): <span className="text-indigo-400 font-bold">v2.5.0-RELEASE</span></span>
-            </div>
-            <div>
-              <span>最後更新 (LAST UPDATE): <span className="text-indigo-400 font-bold">2026-07-19 19:00</span></span>
-            </div>
-          </div>
+
 
         </main>
       ) : (
@@ -2391,9 +2477,23 @@ export default function App() {
                         </>
                       ) : gameState.selectedJobId === 'archer' ? (
                         <>
-                          <span className="text-zinc-400 font-bold">🏹 自動:</span>
-                          <span className={hasArcherAutoSolveUsed ? "text-rose-500 line-through font-bold font-mono text-xs sm:text-sm" : "text-emerald-400 font-black font-mono text-xs sm:text-sm"}>
-                            {hasArcherAutoSolveUsed ? "🔴 完" : "🟢 可"}
+                          <span className="text-zinc-400 font-bold">🏹 鷹眼:</span>
+                          <span className={archerCharges === 0 ? "text-rose-500 line-through font-bold font-mono text-xs sm:text-sm" : "text-emerald-400 font-black font-mono text-xs sm:text-sm"}>
+                            剩餘 {archerCharges} 次
+                          </span>
+                        </>
+                      ) : gameState.selectedJobId === 'dancer' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">💃 避戰:</span>
+                          <span className="text-pink-400 font-black font-mono text-xs sm:text-sm">
+                            1 HP 跳過 🕊️
+                          </span>
+                        </>
+                      ) : gameState.selectedJobId === 'cleric' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">⛪ 恩賜:</span>
+                          <span className="text-indigo-400 font-black font-mono text-xs sm:text-sm">
+                            商店 0 元 🛒
                           </span>
                         </>
                       ) : gameState.selectedJobId === 'warlock' ? (
@@ -2759,7 +2859,7 @@ export default function App() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {(activeQuiz?.options || [])
-                        .filter(opt => opt !== samuraiExcludedOption)
+                        .filter(opt => opt !== samuraiExcludedOption && !archerExcludedOptions.includes(opt))
                         .map((opt, idx) => {
                           const isSelected = selectedOption === opt;
                         const isFlashing = flashingOption === opt;
@@ -2826,14 +2926,25 @@ export default function App() {
                       </button>
                     )}
 
-                    {/* Archer Auto Solve */}
-                    {gameState.selectedJobId === 'archer' && !hasArcherAutoSolveUsed && (
+                    {/* Archer 50/50 */}
+                    {gameState.selectedJobId === 'archer' && archerCharges > 0 && archerExcludedOptions.length === 0 && activeQuiz?.options && activeQuiz.options.length >= 3 && (
                       <button
-                        onClick={handleArcherAutoSolve}
+                        onClick={handleArcher5050}
                         className="py-2 px-4 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-sans font-black text-xs rounded-xl flex items-center gap-2 border-2 border-teal-400 shadow-[0_3px_0_#0f766e] active:translate-y-0.5 active:shadow-[0_1px_0_#0f766e] transition-all cursor-pointer"
                       >
-                        <span>🏹 精準偵察：［自動解答］</span>
-                        <span className="bg-teal-950 text-teal-300 text-[9px] px-1.5 py-0.5 rounded-full border border-teal-800">每局一次</span>
+                        <span>🏹 雙重鷹眼：［二選一］</span>
+                        <span className="bg-teal-950 text-teal-300 text-[9px] px-1.5 py-0.5 rounded-full border border-teal-800">剩餘 {archerCharges} 次</span>
+                      </button>
+                    )}
+
+                    {/* Dancer Skip (Sacrifice Dance) */}
+                    {gameState.selectedJobId === 'dancer' && !bossCombo && (
+                      <button
+                        onClick={handleDancerSkip}
+                        className="py-2 px-4 bg-gradient-to-r from-rose-600 to-pink-700 hover:from-rose-500 hover:to-pink-600 text-white font-sans font-black text-xs rounded-xl flex items-center gap-2 border-2 border-pink-400 shadow-[0_3px_0_#be185d] active:translate-y-0.5 active:shadow-[0_1px_0_#be185d] transition-all cursor-pointer"
+                      >
+                        <span>💃 獻祭之舞：［消耗 1 HP 避戰］</span>
+                        <span className="bg-pink-950 text-pink-300 text-[9px] px-1.5 py-0.5 rounded-full border border-pink-800">可重複使用</span>
                       </button>
                     )}
                   </div>
