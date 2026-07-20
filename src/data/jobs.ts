@@ -51,15 +51,6 @@ export const JOBS: Job[] = [
     unlockXP: 1500,
   },
   {
-    id: 'warlock',
-    name: '黑魔導士',
-    englishName: 'Warlock',
-    emoji: '🔮',
-    skillName: '靈魂抽取',
-    skillDesc: '每次連續答對 3 題（Combo 3），自動吸取怪物魂魄，回復 1 點 HP。',
-    unlockXP: 5000,
-  },
-  {
     id: 'cleric',
     name: '修士',
     englishName: 'Cleric',
@@ -100,9 +91,18 @@ export const JOBS: Job[] = [
     name: '賢者',
     englishName: 'Sage',
     emoji: '📜',
-    skillName: '真理之鑰',
-    skillDesc: '每次擊敗 BOSS 關卡後，有 50% 機率使獲得的金幣與 XP 翻倍！',
-    unlockXP: 3500,
+    skillName: '破魔聖言',
+    skillDesc: '進入 BOSS 關卡時，BOSS 的初始生命值直接減少 1 點 💥。',
+    unlockXP: 4500,
+  },
+  {
+    id: 'warlock',
+    name: '黑魔導士',
+    englishName: 'Warlock',
+    emoji: '🔮',
+    skillName: '靈魂抽取',
+    skillDesc: '每次連續答對 3 題（Combo 3），自動吸取怪物魂魄，回復 1 點 HP。',
+    unlockXP: 5000,
   },
 ];
 

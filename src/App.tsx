@@ -744,8 +744,17 @@ export default function App() {
         setBossCombo(combo);
         setBossComboIndex(0);
         
+        // Sage skill: boss HP decreases by 1 initially.
+        let baseBossHp = 5;
+        if (gameState.selectedJobId === 'sage') {
+          baseBossHp = 4;
+          setTimeout(() => {
+            pushLog("📜✨【破魔聖言】賢者之威降臨！BOSS 的初始生命值一開始就扣減了 1 點！💥");
+          }, 50);
+        }
+
         // Apply pending limit break damage if any, then reset it
-        const finalHp = Math.max(1, 5 - pendingBossLimitBreakDamageRef.current);
+        const finalHp = Math.max(1, baseBossHp - pendingBossLimitBreakDamageRef.current);
         setBossHp(finalHp);
         pendingBossLimitBreakDamageRef.current = 0;
         
@@ -1176,17 +1185,6 @@ export default function App() {
         let bonusXP = 10 + Math.floor(Math.random() * 6); // 10 to 15 XP
         let bonusGold = 50;
 
-        const isSage = gameState.selectedJobId === 'sage';
-        const sageTriggered = isSage && Math.random() < 0.50; // 50% chance for Sage!
-
-        if (sageTriggered) {
-          bonusXP *= 2;
-          bonusGold *= 2;
-          setTimeout(() => {
-            pushLog(`📜✨ 【真理之鑰】賢者的真理奧義觸發 (50% 機率)！擊敗 BOSS 獲得的 XP 與金幣全部翻倍！🤩`);
-          }, 50);
-        }
-
         setGameState(prev => {
           const nextMaxHp = prev.maxHp + 1;
           const isDwarf = prev.selectedJobId === 'dwarf';
@@ -1205,9 +1203,7 @@ export default function App() {
         setRareLootReward({
           xp: bonusXP,
           gold: bonusGold,
-          slopeChange: sageTriggered 
-            ? `📜✨ 【真理之鑰】奧義翻倍生效！\n${slopeChangeMsg}` 
-            : slopeChangeMsg
+          slopeChange: slopeChangeMsg
         });
         setShowRareLootCelebration(true);
 
@@ -2501,6 +2497,13 @@ export default function App() {
                           <span className="text-zinc-400 font-bold">🔮 魂魄:</span>
                           <span className="text-indigo-400 font-black font-mono text-xs sm:text-sm">
                             連擊 {warlockCombo}/3 ⚡
+                          </span>
+                        </>
+                      ) : gameState.selectedJobId === 'sage' ? (
+                        <>
+                          <span className="text-zinc-400 font-bold">📜 聖言:</span>
+                          <span className="text-cyan-400 font-black font-mono text-xs sm:text-sm">
+                            BOSS 生命 -1 💥
                           </span>
                         </>
                       ) : (
