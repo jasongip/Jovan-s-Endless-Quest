@@ -213,8 +213,8 @@ export default function App() {
 
   // Live quest scroll logs
   const [questLogs, setQuestLogs] = useState<string[]>([
-    `🛡️ 歡迎來到無限之塔！小勇士 ${gameState.heroName}，開始你的學術冒險吧！`,
-    `📖 目前抵達第 ${gameState.currentFloor} 層。答對學科問題能消滅怪獸哦！`
+    `📖 目前抵達第 ${gameState.currentFloor} 層。答對學科問題能消滅怪獸哦！`,
+    `🛡️ 歡迎來到無限之塔！小勇士 ${gameState.heroName || "Jovan"}，開始你的學術冒險吧！`
   ]);
   const [isLogExpanded, setIsLogExpanded] = useState<boolean>(true);
 
@@ -846,10 +846,10 @@ export default function App() {
     };
   }, [gameState.currentFloor]);
 
-  // Auto-scroll quest logs to bottom cleanly without displacing viewport position
+  // Auto-scroll quest logs to top cleanly without displacing viewport position
   useEffect(() => {
     if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+      logContainerRef.current.scrollTop = 0;
     }
   }, [questLogs]);
 
@@ -867,7 +867,7 @@ export default function App() {
   };
 
   const pushLog = (msg: string) => {
-    setQuestLogs(prev => [...prev.slice(-19), msg]); // Keep last 20 logs for fast rendering
+    setQuestLogs(prev => [msg, ...prev.slice(0, 19)]); // Keep last 20 logs for fast rendering, newest at top
   };
 
   const handleMageTeleport = () => {
@@ -2130,7 +2130,7 @@ export default function App() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">當前勇士生命值</h4>
-                      <p className="text-sm font-bold text-slate-200">Jovan • LV {Math.floor(gameState.totalXP / 100) + 1}</p>
+                      <p className="text-sm font-bold text-slate-200">{gameState.heroName || "Jovan"}</p>
                     </div>
                   </div>
 
