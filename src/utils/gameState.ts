@@ -67,6 +67,7 @@ export const INITIAL_STATE: GameState = {
   totalXP: 0,
   dFactorSlope: 0.2,
   maxFloorReached: 1,
+  startRunMaxFloor: 1,
   limitBreakBar: 0,
   equippedPetId: null,
   capturedPetIds: [],
@@ -99,6 +100,7 @@ export function loadGameState(): GameState {
         hp: parsed.hp !== undefined ? parsed.hp : 5, // Avoid spawning dead
         dFactorSlope: parsed.dFactorSlope !== undefined ? parsed.dFactorSlope : 0.2,
         maxFloorReached: parsed.maxFloorReached !== undefined ? parsed.maxFloorReached : Math.max(parsed.currentFloor || 1, 1),
+        startRunMaxFloor: parsed.startRunMaxFloor !== undefined ? parsed.startRunMaxFloor : (parsed.maxFloorReached || 1),
         limitBreakBar: parsed.limitBreakBar !== undefined ? parsed.limitBreakBar : 0,
         equippedPetId: parsed.equippedPetId !== undefined ? parsed.equippedPetId : null,
         capturedPetIds: parsed.capturedPetIds !== undefined ? parsed.capturedPetIds : [],

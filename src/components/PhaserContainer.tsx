@@ -17,9 +17,11 @@ interface PhaserContainerProps {
     chestMode: string;
   };
   currentFloorState?: any;
+  isTreasureFloor?: boolean;
+  maxFloorReached?: number;
 }
 
-export default function PhaserContainer({ currentFloor, equippedPetId, selectedJobId, devOverrides, currentFloorState }: PhaserContainerProps) {
+export default function PhaserContainer({ currentFloor, equippedPetId, selectedJobId, devOverrides, currentFloorState, isTreasureFloor, maxFloorReached }: PhaserContainerProps) {
   const gameRef = useRef<any>(null);
   const containerId = 'phaser-game-viewport';
   const [phaserReady, setPhaserReady] = useState(false);
@@ -89,7 +91,9 @@ export default function PhaserContainer({ currentFloor, equippedPetId, selectedJ
         equippedPetId, 
         selectedJobId, 
         devOverrides,
-        floorState: currentFloorState 
+        floorState: currentFloorState,
+        isTreasureFloor,
+        maxFloorReached
       });
     } catch (err) {
       console.error("Failed to initialize Phaser 3 Game instance:", err);
@@ -119,11 +123,13 @@ export default function PhaserContainer({ currentFloor, equippedPetId, selectedJ
           equippedPetId, 
           selectedJobId, 
           devOverrides,
-          floorState: currentFloorState
+          floorState: currentFloorState,
+          isTreasureFloor,
+          maxFloorReached
         });
       }
     }
-  }, [currentFloor, equippedPetId, selectedJobId, devOverrides]);
+  }, [currentFloor, equippedPetId, selectedJobId, devOverrides, isTreasureFloor, maxFloorReached]);
 
   return (
     <div className="relative w-full flex items-center justify-center p-2 bg-slate-950/40 rounded-2xl border-4 border-slate-700/80 shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden">
@@ -155,7 +161,7 @@ export default function PhaserContainer({ currentFloor, equippedPetId, selectedJ
       {/* Phaser Canvas Holder */}
       <div 
         id={containerId} 
-        className="w-full h-auto max-h-[320px] xs:max-h-[365px] sm:max-h-[420px] md:max-h-[460px] lg:max-h-[480px] xl:max-h-[560px] aspect-[16/10] bg-slate-950 rounded-lg overflow-hidden mx-auto"
+        className="w-full h-auto max-h-[300px] xs:max-h-[340px] sm:max-h-[380px] md:max-h-[400px] lg:max-h-[450px] xl:max-h-[520px] aspect-[16/10] bg-slate-950 rounded-lg overflow-hidden mx-auto"
         style={{ touchAction: 'none' }}
       />
     </div>

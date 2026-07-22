@@ -44,16 +44,26 @@ export class DungeonScene extends Phaser.Scene {
   private tileSprites: any[][] = [];
   private pathHighlights: any = null;
 
+  // Environmental variations & special floor states
+  private mutationType: 'none' | 'fog' | 'hazard' | 'hazard_fire' | 'hazard_ice' | 'hazard_poison' | 'frenzy' | 'pitfall' | 'nest' = 'none';
+  private isTreasureFloor = false;
+  private maxFloorReached = 1;
+  private fogGroup!: any;
+  private fogTiles: any[][] = [];
+  private exploredFog: boolean[][] = [];
+
   constructor() {
     super({ key: 'DungeonScene' });
   }
 
-  init(data: { floor?: number; equippedPetId?: string | null; selectedJobId?: string | null; devOverrides?: any; floorState?: any }) {
+  init(data: { floor?: number; equippedPetId?: string | null; selectedJobId?: string | null; devOverrides?: any; floorState?: any; isTreasureFloor?: boolean; maxFloorReached?: number }) {
     this.currentFloor = data.floor || 1;
     this.equippedPetId = data.equippedPetId || null;
     this.selectedJobId = data.selectedJobId || null;
     this.devOverrides = data.devOverrides || null;
     this.currentFloorState = data.floorState || null;
+    this.isTreasureFloor = data.floorState?.isTreasureVault || data.isTreasureFloor || false;
+    this.maxFloorReached = data.maxFloorReached || 1;
     this.playerGridX = 1;
     this.playerGridY = 8;
     this.isMoving = false;
@@ -62,6 +72,39 @@ export class DungeonScene extends Phaser.Scene {
     this.activeMonsterSprite = null;
     this.portalActive = false;
     this.isTransitioning = false;
+
+    const isBoss = this.currentFloor % 5 === 0;
+    const isRest = this.currentFloor % 5 === 4;
+
+    // Roll random environmental mutation for floor > 5 (50% base at F5, +1% per floor above 5)
+    if (this.currentFloorState?.mutationType) {
+      this.mutationType = this.currentFloorState.mutationType;
+    } else if (this.devOverrides?.mutationMode === 'treasure') {
+      this.isTreasureFloor = true;
+      this.mutationType = 'none';
+    } else if (this.isTreasureFloor || isBoss || isRest) {
+      this.mutationType = 'none';
+    } else if (this.devOverrides?.mutationMode && this.devOverrides.mutationMode !== 'default') {
+      if (this.devOverrides.mutationMode === 'hazard') {
+        const hazardTypes: ('hazard_fire' | 'hazard_ice' | 'hazard_poison')[] = ['hazard_fire', 'hazard_ice', 'hazard_poison'];
+        this.mutationType = hazardTypes[Math.floor(Math.random() * hazardTypes.length)];
+      } else {
+        this.mutationType = this.devOverrides.mutationMode === 'none' ? 'none' : this.devOverrides.mutationMode;
+      }
+    } else if (this.currentFloor >= 5) {
+      const mutationChance = Math.min(0.95, 0.50 + (this.currentFloor - 5) * 0.01);
+      if (Math.random() < mutationChance) {
+        const types: ('fog' | 'hazard_fire' | 'hazard_ice' | 'hazard_poison' | 'frenzy' | 'pitfall' | 'nest')[] = [
+          'fog', 'hazard_fire', 'hazard_ice', 'hazard_poison', 'frenzy', 'pitfall', 'nest'
+        ];
+        this.mutationType = types[Math.floor(Math.random() * types.length)];
+      } else {
+        this.mutationType = 'none';
+      }
+    } else {
+      this.mutationType = 'none';
+    }
+
     GameBridge.currentScene = this;
   }
 
@@ -82,16 +125,23 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.textures.exists('ruins')) this.createRuinsTexture();
     if (!this.textures.exists('ruin_wall')) this.createRuinWallTexture();
 
-    // Create beautiful job-specific JRPG hero sprites
+    // Create beautiful job-specific JRPG hero sprites and golden personal best statues
     const jobsList = ['warrior', 'samurai', 'dwarf', 'mage', 'warlock', 'cleric', 'thief', 'dancer', 'archer', 'sage'];
     jobsList.forEach(jobId => {
       const texKey = `hero_${jobId}`;
       if (!this.textures.exists(texKey)) {
         this.createHeroTextureForJob(texKey, jobId);
       }
+      const statueKey = `statue_${jobId}`;
+      if (!this.textures.exists(statueKey)) {
+        this.createGoldenHeroTextureForJob(statueKey, jobId);
+      }
     });
     if (!this.textures.exists('hero')) {
       this.createHeroTextureForJob('hero', 'warrior');
+    }
+    if (!this.textures.exists('statue')) {
+      this.createGoldenHeroTextureForJob('statue', 'warrior');
     }
     if (!this.textures.exists('math_monster')) this.createMonsterTexture('math_monster', '#a855f7', '#6b21a8'); // Purple
     if (!this.textures.exists('chinese_monster')) this.createMonsterTexture('chinese_monster', '#f43f5e', '#be123c'); // Pink
@@ -107,6 +157,409 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.textures.exists('money_bag')) this.createMoneyBagTexture();
     if (!this.textures.exists('campfire')) this.createCampfireTexture();
     if (!this.textures.exists('elf')) this.createElfTexture();
+
+    // Environmental mutation preloads
+    if (!this.textures.exists('hazard_fire')) this.createHazardFireTexture();
+    if (!this.textures.exists('hazard_ice')) this.createHazardIceTexture();
+    if (!this.textures.exists('hazard_poison')) this.createHazardPoisonTexture();
+    if (!this.textures.exists('pitfall')) this.createPitfallTexture();
+    if (!this.textures.exists('fog_tile')) this.createFogTexture();
+  }
+
+  private createGoldenHeroTextureForJob(key: string, jobId: string) {
+    if (this.textures.exists(key)) return;
+    const canvas = this.textures.createCanvas(key, this.tileSize, this.tileSize);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    if (!ctx) return;
+    ctx.clearRect(0, 0, this.tileSize, this.tileSize);
+
+    // 1. Stone & Gold Pedestal Base
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(8, 38, 32, 8);
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(10, 35, 28, 4);
+    ctx.fillStyle = '#ca8a04';
+    ctx.fillRect(12, 32, 24, 4);
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(14, 30, 20, 3);
+
+    // Gold Palette
+    const bodyGold = '#facc15';
+    const highlightGold = '#fef08a';
+    const shadowGold = '#d97706';
+    const deepShadow = '#78350f';
+    const whiteGlint = '#ffffff';
+
+    const isStout = jobId === 'dwarf';
+    const hasBeard = jobId === 'dwarf' || jobId === 'sage';
+    const hasConicalHat = jobId === 'mage' || jobId === 'warlock';
+    const hasHalo = jobId === 'cleric';
+    const hasShield = jobId === 'warrior';
+
+    // Body / Armor / Robe (all golden)
+    ctx.fillStyle = bodyGold;
+    ctx.beginPath();
+    if (isStout) {
+      ctx.arc(24, 25, 12, 0, Math.PI * 2);
+    } else {
+      ctx.arc(24, 22, 10, 0, Math.PI * 2);
+    }
+    ctx.fill();
+
+    // Shadow under body
+    ctx.fillStyle = shadowGold;
+    ctx.fillRect(16, 26, 16, 4);
+
+    // Hair / Crown (golden highlight)
+    ctx.fillStyle = highlightGold;
+    ctx.beginPath();
+    ctx.arc(24, 15, 9, Math.PI, 0);
+    ctx.fill();
+
+    // Face (glowing yellow gold)
+    ctx.fillStyle = '#fde047';
+    if (isStout) {
+      ctx.fillRect(15, 18, 18, 6);
+    } else {
+      ctx.fillRect(16, 17, 16, 6);
+    }
+
+    // Beard (golden)
+    if (hasBeard) {
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(15, 21, 18, 7);
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(16, 25, 16, 3);
+    }
+
+    // Eyes (glowing golden brown)
+    ctx.fillStyle = deepShadow;
+    ctx.fillRect(18, 18, 3, 3);
+    ctx.fillRect(27, 18, 3, 3);
+    ctx.fillStyle = whiteGlint;
+    ctx.fillRect(18, 18, 1, 1);
+    ctx.fillRect(27, 18, 1, 1);
+
+    // Conical Hat
+    if (hasConicalHat) {
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(10, 10, 28, 3);
+      ctx.beginPath();
+      ctx.moveTo(12, 10);
+      ctx.lineTo(24, 0);
+      ctx.lineTo(36, 10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(14, 9, 20, 2);
+    }
+
+    // Halo
+    if (hasHalo) {
+      ctx.strokeStyle = highlightGold;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(24, 5, 8, 3, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Shield
+    if (hasShield) {
+      ctx.fillStyle = bodyGold;
+      ctx.fillRect(6, 14, 6, 12);
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(7, 15, 4, 10);
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(5, 13, 8, 1);
+    }
+
+    // Job specific golden weapons
+    if (jobId === 'warrior') {
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(35, 8, 3, 16);
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(33, 20, 7, 2);
+    } else if (jobId === 'samurai') {
+      ctx.strokeStyle = highlightGold;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(34, 26);
+      ctx.lineTo(43, 6);
+      ctx.stroke();
+    } else if (jobId === 'dwarf') {
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(35, 8, 3, 18);
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(31, 10, 4, 6);
+      ctx.fillRect(38, 10, 4, 6);
+    } else if (jobId === 'mage' || jobId === 'warlock') {
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(35, 6, 2, 20);
+      ctx.fillStyle = highlightGold;
+      ctx.beginPath();
+      ctx.arc(36, 5, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (jobId === 'cleric') {
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(35, 6, 2, 20);
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(32, 8, 8, 2);
+    } else if (jobId === 'thief') {
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(34, 10, 2, 8);
+      ctx.fillRect(38, 14, 2, 8);
+    } else if (jobId === 'dancer') {
+      ctx.fillStyle = highlightGold;
+      ctx.beginPath();
+      ctx.arc(36, 16, 7, Math.PI, Math.PI * 1.8);
+      ctx.fill();
+    } else if (jobId === 'archer') {
+      ctx.strokeStyle = shadowGold;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(36, 16, 10, -Math.PI / 2, Math.PI / 2);
+      ctx.stroke();
+    } else if (jobId === 'sage') {
+      ctx.fillStyle = shadowGold;
+      ctx.fillRect(33, 10, 2, 20);
+      ctx.fillStyle = highlightGold;
+      ctx.fillRect(34, 12, 6, 8);
+    }
+
+    // Golden shine glints over statue
+    ctx.fillStyle = whiteGlint;
+    ctx.fillRect(20, 14, 2, 2);
+    ctx.fillRect(26, 24, 2, 2);
+
+    canvas.refresh();
+  }
+
+  private createStatueTexture() {
+    this.createGoldenHeroTextureForJob('statue', 'warrior');
+  }
+
+  private createHazardFireTexture() {
+    if (this.textures.exists('hazard_fire')) return;
+    const canvas = this.textures.createCanvas('hazard_fire', this.tileSize, this.tileSize);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    if (!ctx) return;
+    ctx.clearRect(0, 0, this.tileSize, this.tileSize);
+
+    // Pure bright red base tile (火：純鮮紅)
+    ctx.fillStyle = '#991b1b';
+    ctx.fillRect(0, 0, this.tileSize, this.tileSize);
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(2, 2, this.tileSize - 4, this.tileSize - 4);
+
+    // Fiery magma lava core
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.arc(24, 24, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath(); ctx.arc(24, 24, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath(); ctx.arc(24, 24, 5, 0, Math.PI * 2); ctx.fill();
+
+    canvas.refresh();
+  }
+
+  private createHazardIceTexture() {
+    if (this.textures.exists('hazard_ice')) return;
+    const canvas = this.textures.createCanvas('hazard_ice', this.tileSize, this.tileSize);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    if (!ctx) return;
+    ctx.clearRect(0, 0, this.tileSize, this.tileSize);
+
+    // Pure deep blue base tile (霜凍：純深藍)
+    ctx.fillStyle = '#1e3a8a';
+    ctx.fillRect(0, 0, this.tileSize, this.tileSize);
+    ctx.fillStyle = '#1d4ed8';
+    ctx.fillRect(2, 2, this.tileSize - 4, this.tileSize - 4);
+
+    // Glacial frost core
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath(); ctx.arc(24, 24, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#60a5fa';
+    ctx.beginPath(); ctx.arc(24, 24, 10, 0, Math.PI * 2); ctx.fill();
+
+    // Ice crystal star lines
+    ctx.strokeStyle = '#e0f2fe';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(24, 10); ctx.lineTo(24, 38);
+    ctx.moveTo(10, 24); ctx.lineTo(38, 24);
+    ctx.moveTo(14, 14); ctx.lineTo(34, 34);
+    ctx.moveTo(34, 14); ctx.lineTo(14, 34);
+    ctx.stroke();
+
+    canvas.refresh();
+  }
+
+  private createHazardPoisonTexture() {
+    if (this.textures.exists('hazard_poison')) return;
+    const canvas = this.textures.createCanvas('hazard_poison', this.tileSize, this.tileSize);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    if (!ctx) return;
+    ctx.clearRect(0, 0, this.tileSize, this.tileSize);
+
+    // Pure deep purple base tile (劇毒：純深紫)
+    ctx.fillStyle = '#581c87';
+    ctx.fillRect(0, 0, this.tileSize, this.tileSize);
+    ctx.fillStyle = '#7e22ce';
+    ctx.fillRect(2, 2, this.tileSize - 4, this.tileSize - 4);
+
+    // Poison pool core
+    ctx.fillStyle = '#9333ea';
+    ctx.beginPath(); ctx.arc(24, 24, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c084fc';
+    ctx.beginPath(); ctx.arc(24, 24, 10, 0, Math.PI * 2); ctx.fill();
+
+    // Toxic bubbles
+    ctx.fillStyle = '#f3e8ff';
+    ctx.beginPath(); ctx.arc(18, 20, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(28, 26, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(20, 28, 2, 0, Math.PI * 2); ctx.fill();
+
+    canvas.refresh();
+  }
+
+  private createPitfallTexture() {
+    if (this.textures.exists('pitfall')) return;
+    const canvas = this.textures.createCanvas('pitfall', this.tileSize, this.tileSize);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    if (!ctx) return;
+    ctx.clearRect(0, 0, this.tileSize, this.tileSize);
+
+    // Dark crumbled stone floor base
+    ctx.fillStyle = '#18181b';
+    ctx.fillRect(0, 0, this.tileSize, this.tileSize);
+
+    // Ominous deep abyss portal gradient
+    const pitGrad = ctx.createRadialGradient(24, 24, 2, 24, 24, 22);
+    pitGrad.addColorStop(0, '#000000');
+    pitGrad.addColorStop(0.6, '#09090b');
+    pitGrad.addColorStop(0.85, '#3b0764');
+    pitGrad.addColorStop(1, '#27272a');
+    ctx.fillStyle = pitGrad;
+    ctx.beginPath();
+    ctx.arc(24, 24, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Abyss vortex swirl lines
+    ctx.strokeStyle = '#581c87';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(24, 24, 15, 0, Math.PI * 1.5);
+    ctx.stroke();
+    ctx.strokeStyle = '#701a75';
+    ctx.beginPath();
+    ctx.arc(24, 24, 10, Math.PI * 0.5, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner infinite void black center
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(24, 24, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Broken crumbling floor cracks extending outward
+    ctx.strokeStyle = '#3f3f46';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(10, 10); ctx.lineTo(18, 18);
+    ctx.moveTo(38, 10); ctx.lineTo(30, 18);
+    ctx.moveTo(10, 38); ctx.lineTo(18, 30);
+    ctx.moveTo(38, 38); ctx.lineTo(30, 30);
+    ctx.stroke();
+
+    // Glowing void ember specs
+    ctx.fillStyle = '#a855f7';
+    ctx.fillRect(16, 12, 1.5, 1.5);
+    ctx.fillRect(30, 32, 1.5, 1.5);
+    ctx.fillStyle = '#e11d48';
+    ctx.fillRect(32, 16, 1.5, 1.5);
+
+    canvas.refresh();
+  }
+
+  private createPitfallEntity(id: string, x: number, y: number, gridX: number, gridY: number) {
+    const pitfall = this.add.sprite(x, y, 'pitfall');
+    pitfall.setData('id', id);
+    pitfall.setData('type', 'pitfall');
+    pitfall.setData('gridX', gridX);
+    pitfall.setData('gridY', gridY);
+
+    this.interactivesGroup.add(pitfall);
+    return pitfall;
+  }
+
+  private createHazardEntity(id: string, x: number, y: number, gridX: number, gridY: number, hazardKey: string = 'hazard_fire') {
+    const hazard = this.add.sprite(x, y, hazardKey);
+    hazard.setData('id', id);
+    hazard.setData('type', 'hazard');
+    hazard.setData('gridX', gridX);
+    hazard.setData('gridY', gridY);
+
+    this.interactivesGroup.add(hazard);
+    return hazard;
+  }
+
+  private createFogTexture() {
+    if (this.textures.exists('fog_tile')) return;
+    const canvas = this.textures.createCanvas('fog_tile', this.tileSize, this.tileSize);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    if (!ctx) return;
+    ctx.clearRect(0, 0, this.tileSize, this.tileSize);
+
+    // Deep mysterious dark slate background gradient
+    const bgGrad = ctx.createRadialGradient(24, 24, 4, 24, 24, 32);
+    bgGrad.addColorStop(0, '#1e293b');
+    bgGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, this.tileSize, this.tileSize);
+
+    // Organic soft misty clouds
+    ctx.fillStyle = '#334155';
+    ctx.beginPath();
+    ctx.arc(14, 14, 22, 0, Math.PI * 2);
+    ctx.arc(34, 30, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.arc(28, 16, 16, 0, Math.PI * 2);
+    ctx.arc(12, 34, 18, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#64748b';
+    ctx.beginPath();
+    ctx.arc(22, 24, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Soft swirling smoke arcs
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(6, 20); ctx.quadraticCurveTo(24, 8, 42, 20);
+    ctx.moveTo(6, 32); ctx.quadraticCurveTo(24, 40, 42, 28);
+    ctx.stroke();
+
+    // Floating subtle magical wisp particles
+    ctx.fillStyle = '#a855f7';
+    ctx.beginPath(); ctx.arc(16, 12, 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(32, 36, 1.5, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath(); ctx.arc(34, 14, 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12, 32, 1.5, 0, Math.PI * 2); ctx.fill();
+
+    canvas.refresh();
   }
 
   getBiomeKeys() {
@@ -149,6 +602,11 @@ export class DungeonScene extends Phaser.Scene {
     
     // 6. Spawn Monsters and Chests
     this.spawnEntities();
+
+    // 6.5 Render Fog Overlay (must render after monsters & entities to cover them on unexplored tiles)
+    if (this.mutationType === 'fog') {
+      this.renderFogOverlay();
+    }
     
     // 7. Interactive touch listeners
     this.input.on('pointerdown', (pointer: any) => {
@@ -169,7 +627,25 @@ export class DungeonScene extends Phaser.Scene {
     const isMerchant = this.currentFloor % 5 === 4;
     
     let guideMessage = `🏰 勇士進入了「${biome.name}」第 ${this.currentFloor} 層！ 擊敗怪獸開啟傳送門！ 🌀`;
-    if (isBoss) {
+    if (this.isTreasureFloor) {
+      guideMessage = `✨【隱藏關卡：皇家寶庫】遍地都是無盡古代寶箱！快去搜刮巨額獎勵！ 💰`;
+    } else if (this.mutationType === 'fog') {
+      guideMessage = `🌫️【樓層異變：濃霧密佈】地圖被迷霧遮擋，探索迷宮尋找出口！ 👁️`;
+    } else if (this.mutationType === 'hazard_fire') {
+      guideMessage = `🌋【樓層異變：烈焰陷阱】踩中烈焰陷阱扣 1 HP，小心避開火紅烈焰！ ⚠️`;
+    } else if (this.mutationType === 'hazard_ice') {
+      guideMessage = `❄️【樓層異變：霜凍陷阱】踩中霜凍陷阱扣 1 HP，小心避開冰藍寒霜！ ⚠️`;
+    } else if (this.mutationType === 'hazard_poison') {
+      guideMessage = `☠️【樓層異變：劇毒陷阱】踩中劇毒陷阱扣 1 HP，小心避開深紫毒沼！ ⚠️`;
+    } else if (this.mutationType === 'hazard') {
+      guideMessage = `🌋【樓層異變：元素陷阱】踩中陷阱扣 1 HP，小心避開危險區域！ ⚠️`;
+    } else if (this.mutationType === 'frenzy') {
+      guideMessage = `🔥【樓層異變：狂暴魔域】怪獸攻擊力暴漲，答錯扣 2 血，答對得 2 倍金幣與 2 倍 XP！ ⚔️`;
+    } else if (this.mutationType === 'pitfall') {
+      guideMessage = `🕳️【樓層異變：破洞密佈】地面隨機崩塌出現破洞，踩中直墜下一層！ 🌀`;
+    } else if (this.mutationType === 'nest') {
+      guideMessage = `👾【樓層異變：怪物巢穴】怪獸數量翻倍！勇士請謹慎迎戰！ ⚔️`;
+    } else if (isBoss) {
       guideMessage = `👹 警告！第 ${this.currentFloor} 層為 BOSS 關卡！準備迎戰巨型守護者！ ⚔️`;
       const bossIndex = Math.floor((this.currentFloor / 5) - 1) % BOSS_DATABASE.length;
       const bossData = BOSS_DATABASE[bossIndex];
@@ -260,11 +736,67 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  private renderFogOverlay() {
+    if (this.mutationType !== 'fog') return;
+    this.fogGroup = this.add.group();
+    this.fogTiles = [];
+    this.exploredFog = [];
+    for (let r = 0; r < this.rows; r++) {
+      this.fogTiles[r] = [];
+      this.exploredFog[r] = [];
+      for (let c = 0; c < this.cols; c++) {
+        this.exploredFog[r][c] = false;
+        // Outer border wall tiles & portals on outer ring stay clear of fog
+        if (r > 0 && r < this.rows - 1 && c > 0 && c < this.cols - 1) {
+          const fx = c * this.tileSize + this.tileSize / 2;
+          const fy = r * this.tileSize + this.tileSize / 2;
+          const fogTile = this.add.sprite(fx, fy, 'fog_tile');
+          fogTile.setDepth(2000); // Cover monsters, chests, traps on inner tiles
+          this.fogTiles[r][c] = fogTile;
+          this.fogGroup.add(fogTile);
+        }
+      }
+    }
+    this.updateFogVision();
+  }
+
+  private updateFogVision() {
+    if (this.mutationType !== 'fog' || !this.fogTiles || this.fogTiles.length === 0) return;
+    const px = this.playerGridX;
+    const py = this.playerGridY;
+    
+    // Mark current cell and adjacent cells (distance <= 1.5) as explored
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const dist = Math.hypot(c - px, r - py);
+        if (dist <= 1.5) {
+          if (this.exploredFog[r]) {
+            this.exploredFog[r][c] = true;
+          }
+        }
+      }
+    }
+
+    // Update fog visibility
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        if (this.fogTiles[r] && this.fogTiles[r][c]) {
+          if (this.exploredFog[r] && this.exploredFog[r][c]) {
+            this.fogTiles[r][c].setAlpha(0); // Cleared permanently for walked route
+          } else {
+            this.fogTiles[r][c].setAlpha(0.98); // Dense slate fog over unexplored area
+          }
+        }
+      }
+    }
+  }
+
   private spawnPlayer() {
     const startX = this.playerGridX * this.tileSize + this.tileSize / 2;
     const startY = this.playerGridY * this.tileSize + this.tileSize / 2;
     
     this.player = this.add.container(startX, startY);
+    this.player.setDepth(3000); // Render above fog tiles
     
     const activeJobKey = `hero_${this.selectedJobId || 'warrior'}`;
     const texKey = this.textures.exists(activeJobKey) ? activeJobKey : 'hero';
@@ -289,9 +821,9 @@ export class DungeonScene extends Phaser.Scene {
     this.portalsGroup = this.add.group();
     
     const locations = [
-      { x: 8, y: 0 },
-      { x: 15, y: 5 },
-      { x: 0, y: 5 }
+      { x: 8, y: 0, dir: 'UP' },
+      { x: 15, y: 5, dir: 'RIGHT' },
+      { x: 0, y: 5, dir: 'LEFT' }
     ];
     
     locations.forEach((portalLoc) => {
@@ -321,6 +853,7 @@ export class DungeonScene extends Phaser.Scene {
       const portal = this.add.sprite(px, py, 'portal');
       portal.setData('gridX', portalLoc.x);
       portal.setData('gridY', portalLoc.y);
+      portal.setData('dir', portalLoc.dir);
       portal.setScale(0.8);
       portal.setAlpha(0.5);
 
@@ -476,6 +1009,50 @@ export class DungeonScene extends Phaser.Scene {
 
           this.monstersGroup.add(monster);
         }
+        else if (ent.type === 'statue') {
+          const statueKey = `statue_${this.selectedJobId || 'warrior'}`;
+          const texKey = this.textures.exists(statueKey) ? statueKey : 'statue';
+          const statue = this.add.sprite(ex, ey, texKey);
+          statue.setData('id', ent.id);
+          statue.setData('type', 'statue');
+          statue.setData('gridX', ent.gridX);
+          statue.setData('gridY', ent.gridY);
+          statue.setScale(1.25);
+
+          const crown = this.add.star(ex, ey - 32, 5, 5, 10, 0xfacc15);
+          this.tweens.add({
+            targets: crown,
+            y: ey - 38,
+            angle: 360,
+            duration: 2000,
+            repeat: -1
+          });
+
+          const auraRing = this.add.graphics();
+          auraRing.lineStyle(2, 0xfacc15, 0.8);
+          auraRing.strokeCircle(ex, ey + 10, 20);
+          this.tweens.add({
+            targets: auraRing,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            alpha: 0.3,
+            duration: 1200,
+            yoyo: true,
+            repeat: -1
+          });
+
+          statue.on('destroy', () => {
+            crown.destroy();
+            auraRing.destroy();
+          });
+          this.interactivesGroup.add(statue);
+        }
+        else if (ent.type === 'hazard') {
+          this.createHazardEntity(ent.id, ex, ey, ent.gridX, ent.gridY);
+        }
+        else if (ent.type === 'pitfall') {
+          this.createPitfallEntity(ent.id, ex, ey, ent.gridX, ent.gridY);
+        }
         else {
           let textureKey = ent.type;
           if (ent.type === 'bag') textureKey = 'money_bag';
@@ -486,7 +1063,7 @@ export class DungeonScene extends Phaser.Scene {
           sprite.setData('gridY', ent.gridY);
           sprite.setData('id', ent.id);
 
-          if (this.equippedPetId === 'pet_8' && (ent.type === 'chest' || ent.type === 'bag')) {
+          if (this.equippedPetId === 'pet_8' && (ent.type === 'chest' || ent.type === 'bag' || ent.type === 'chest_vault')) {
             const beacon = this.add.graphics();
             beacon.lineStyle(3, 0xeab308, 0.7);
             beacon.strokeCircle(ex, ey, 22);
@@ -530,6 +1107,41 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     eligibleCells.sort(() => Math.random() - 0.5);
+
+    if (this.isTreasureFloor) {
+      this.portalActive = true;
+      this.portalsGroup.getChildren().forEach((pObj: any) => {
+        pObj.setAlpha(1.0);
+      });
+
+      const chestCount = Math.min(35, eligibleCells.length);
+      for (let i = 0; i < chestCount; i++) {
+        const cell = eligibleCells.pop()!;
+        const cx = cell.x * this.tileSize + this.tileSize / 2;
+        const cy = cell.y * this.tileSize + this.tileSize / 2;
+
+        const isBag = Math.random() < 0.3;
+        const textureKey = isBag ? 'money_bag' : 'chest';
+        const sprite = this.add.sprite(cx, cy, textureKey);
+        const interactiveId = `vault_chest_${cell.x}_${cell.y}`;
+        sprite.setData('id', interactiveId);
+        sprite.setData('type', 'chest_vault');
+        sprite.setData('gridX', cell.x);
+        sprite.setData('gridY', cell.y);
+
+        this.tweens.add({
+          targets: sprite,
+          scale: 1.15,
+          duration: 800 + Math.random() * 400,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+
+        this.interactivesGroup.add(sprite);
+      }
+      return;
+    }
 
     const isBoss = this.currentFloor % 5 === 0;
     const isRest = this.currentFloor % 5 === 4;
@@ -696,6 +1308,97 @@ export class DungeonScene extends Phaser.Scene {
       // Load biome monsters and shuffle to ensure uniqueness
       const biomeMonsters = [...getMonstersByBiome(biomeType)].sort(() => Math.random() - 0.5);
 
+      // Personal Best Statue check (Placed in the exact center of the level)
+      if (this.currentFloor === this.maxFloorReached && this.maxFloorReached > 1) {
+        const centerGridX = Math.floor(this.cols / 2);
+        const centerGridY = Math.floor(this.rows / 2);
+
+        // Ensure center cell is a floor tile
+        this.grid[centerGridY][centerGridX] = 0;
+        if (this.tileSprites && this.tileSprites[centerGridY] && this.tileSprites[centerGridY][centerGridX]) {
+          this.tileSprites[centerGridY][centerGridX].setTexture(biomeType);
+        }
+
+        // Remove center cell from eligibleCells so other entities do not overlap
+        const centerIdx = eligibleCells.findIndex(cell => cell.x === centerGridX && cell.y === centerGridY);
+        if (centerIdx !== -1) {
+          eligibleCells.splice(centerIdx, 1);
+        }
+
+        const sx = centerGridX * this.tileSize + this.tileSize / 2;
+        const sy = centerGridY * this.tileSize + this.tileSize / 2;
+
+        const statueKey = `statue_${this.selectedJobId || 'warrior'}`;
+        const texKey = this.textures.exists(statueKey) ? statueKey : 'statue';
+
+        const statue = this.add.sprite(sx, sy, texKey);
+        statue.setData('id', `statue_${this.currentFloor}`);
+        statue.setData('type', 'statue');
+        statue.setData('gridX', centerGridX);
+        statue.setData('gridY', centerGridY);
+        statue.setScale(1.25);
+
+        const crown = this.add.star(sx, sy - 32, 5, 5, 10, 0xfacc15);
+        this.tweens.add({
+          targets: crown,
+          y: sy - 38,
+          angle: 360,
+          duration: 2000,
+          repeat: -1
+        });
+
+        const auraRing = this.add.graphics();
+        auraRing.lineStyle(2, 0xfacc15, 0.8);
+        auraRing.strokeCircle(sx, sy + 10, 20);
+        this.tweens.add({
+          targets: auraRing,
+          scaleX: 1.2,
+          scaleY: 1.2,
+          alpha: 0.3,
+          duration: 1200,
+          yoyo: true,
+          repeat: -1
+        });
+
+        statue.on('destroy', () => {
+          crown.destroy();
+          auraRing.destroy();
+        });
+
+        this.interactivesGroup.add(statue);
+        this.carvePath(this.playerGridX, this.playerGridY, centerGridX, centerGridY);
+      }
+
+      // Mutation environmental hazards / pitfalls
+      if (['hazard', 'hazard_fire', 'hazard_ice', 'hazard_poison'].includes(this.mutationType)) {
+        const targetCount = Math.floor(Math.random() * 3) + 6; // Randomly 6, 7, or 8 items
+        const numHazards = Math.min(targetCount, eligibleCells.length);
+        for (let i = 0; i < numHazards; i++) {
+          const cell = eligibleCells.pop()!;
+          const hx = cell.x * this.tileSize + this.tileSize / 2;
+          const hy = cell.y * this.tileSize + this.tileSize / 2;
+          let hKey = 'hazard_fire';
+          if (this.mutationType === 'hazard_ice') {
+            hKey = 'hazard_ice';
+          } else if (this.mutationType === 'hazard_poison') {
+            hKey = 'hazard_poison';
+          } else if (this.mutationType === 'hazard') {
+            const hKeys = ['hazard_fire', 'hazard_ice', 'hazard_poison'];
+            hKey = hKeys[Math.floor(Math.random() * hKeys.length)];
+          }
+          this.createHazardEntity(`hazard_${cell.x}_${cell.y}`, hx, hy, cell.x, cell.y, hKey);
+        }
+      } else if (this.mutationType === 'pitfall') {
+        const targetCount = Math.floor(Math.random() * 3) + 6; // Randomly 6, 7, or 8 items
+        const numPitfalls = Math.min(targetCount, eligibleCells.length);
+        for (let i = 0; i < numPitfalls; i++) {
+          const cell = eligibleCells.pop()!;
+          const px = cell.x * this.tileSize + this.tileSize / 2;
+          const py = cell.y * this.tileSize + this.tileSize / 2;
+          this.createPitfallEntity(`pitfall_${cell.x}_${cell.y}`, px, py, cell.x, cell.y);
+        }
+      }
+
       // Standalone pet spawning (2% chance)
       let shouldSpawnPet = Math.random() < 0.02;
       if (this.devOverrides?.petMode === 'force_yes') {
@@ -711,7 +1414,7 @@ export class DungeonScene extends Phaser.Scene {
         this.carvePath(this.playerGridX, this.playerGridY, petCell.x, petCell.y);
       }
 
-      const numMonsters = Math.min(3, eligibleCells.length);
+      const numMonsters = Math.min(this.mutationType === 'nest' ? 6 : 3, eligibleCells.length);
       for (let i = 0; i < numMonsters; i++) {
         if (biomeMonsters.length === 0) break;
         const cell = eligibleCells.pop()!;
@@ -904,7 +1607,9 @@ export class DungeonScene extends Phaser.Scene {
         playerGridX: this.playerGridX,
         playerGridY: this.playerGridY,
         portalActive: this.portalActive,
-        entities: entitiesToSave
+        entities: entitiesToSave,
+        mutationType: this.mutationType,
+        isTreasureVault: this.isTreasureFloor
       };
 
       this.safeCall(GameBridge.onFloorStateCreated, generatedFloorState);
@@ -1010,6 +1715,7 @@ export class DungeonScene extends Phaser.Scene {
         this.currentTargetTile = null;
         this.isMoving = false;
         this.drawPathHighlights(this.pathQueue);
+        this.updateFogVision();
         this.checkCollisions();
         this.safeCall(GameBridge.onPlayerMoved, tx, ty);
       }
@@ -1017,11 +1723,63 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private checkCollisions() {
+    this.updateFogVision();
+
     this.interactivesGroup.getChildren().forEach((iObj: any) => {
       const cx = iObj.getData('gridX');
       const cy = iObj.getData('gridY');
-      
-      if (cx === this.playerGridX && cy === this.playerGridY) {
+      const type = iObj.getData('type');
+
+      if (type === 'hazard' && cx === this.playerGridX && cy === this.playerGridY) {
+        if (!iObj.getData('isTriggered')) {
+          iObj.setData('isTriggered', true);
+          RetroSFX.playHurt();
+          this.cameras.main.shake(200, 0.01);
+          this.safeCall(GameBridge.onHpLost, 1);
+          this.safeCall(GameBridge.onLogUpdated, "🌋【地圖陷阱】踏中猛火劇毒陷阱！遭受元素傷害，HP -1 ❤️");
+          this.showFloatingText(iObj.x, iObj.y - 20, "陷阱傷害！HP -1 ❤️", "#ef4444");
+          this.tweens.add({
+            targets: iObj,
+            alpha: 0.3,
+            duration: 300
+          });
+        }
+      } else if (type === 'pitfall' && cx === this.playerGridX && cy === this.playerGridY) {
+        if (!this.isTransitioning) {
+          this.isTransitioning = true;
+          this.pathQueue = [];
+          if (this.pathHighlights) this.pathHighlights.clear();
+          RetroSFX.playWarp();
+          this.safeCall(GameBridge.onLogUpdated, "🕳️【地圖破洞】不小心踩空跌入破洞！直接跌落到了下一層！");
+          this.tweens.add({
+            targets: this.player,
+            angle: 720,
+            scaleX: 0,
+            scaleY: 0,
+            duration: 400
+          });
+          this.cameras.main.fade(400, 9, 13, 22);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.safeCall(GameBridge.onPortalReached, 'DOWN');
+          });
+        }
+      } else if (type === 'statue' && (Math.abs(cx - this.playerGridX) <= 1 && Math.abs(cy - this.playerGridY) <= 1)) {
+        if (!iObj.getData('isInteracted')) {
+          iObj.setData('isInteracted', true);
+          RetroSFX.playFanfare();
+          try {
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+              const msg = new SpeechSynthesisUtterance("你已打破最高紀錄");
+              msg.lang = 'zh-HK';
+              msg.rate = 1.0;
+              window.speechSynthesis.speak(msg);
+            }
+          } catch (e) {}
+          this.safeCall(GameBridge.onLogUpdated, `🗿【勇士紀錄碑】「你已打破最高紀錄！」(歷史最高紀錄：第 ${this.maxFloorReached} 層) 👑`);
+          this.showFloatingText(iObj.x, iObj.y - 30, "🗿 打破最高紀錄！", "#facc15");
+        }
+      } else if (cx === this.playerGridX && cy === this.playerGridY) {
         this.triggerInteractive(iObj);
       }
     });
@@ -1078,10 +1836,11 @@ export class DungeonScene extends Phaser.Scene {
           this.pathQueue = [];
           if (this.pathHighlights) this.pathHighlights.clear();
           
+          const portalDir = hitPortal.getData('dir') || 'UP';
           RetroSFX.playWarp();
           this.cameras.main.fade(400, 9, 13, 22);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.safeCall(GameBridge.onPortalReached);
+            this.safeCall(GameBridge.onPortalReached, portalDir);
           });
         }
       } else {
@@ -1260,6 +2019,25 @@ export class DungeonScene extends Phaser.Scene {
         }
       }
     }
+    else if (type === 'chest_vault') {
+      const rand = Math.random();
+      if (rand < 0.5) {
+        this.safeCall(GameBridge.onHpHealed, 1);
+        RetroSFX.playFanfare();
+        this.safeCall(GameBridge.onLogUpdated, `🎁【皇家寶庫】開啟皇家寶箱！發現「皇家生命藥水」，HP +1 ❤️`);
+        this.showFloatingText(iObj.x, iObj.y - 20, "HP +1 ❤️", '#4ade80');
+      } else if (rand < 0.75) {
+        this.safeCall(GameBridge.onGoldGained, 2);
+        RetroSFX.playCoin();
+        this.safeCall(GameBridge.onLogUpdated, `🎁【皇家寶庫】開啟皇家寶箱！獲得 +2 金幣 🟡`);
+        this.showFloatingText(iObj.x, iObj.y - 20, "+2 金幣 🟡", '#facc15');
+      } else {
+        this.safeCall(GameBridge.onXPGained, 2);
+        RetroSFX.playFanfare();
+        this.safeCall(GameBridge.onLogUpdated, `🎁【皇家寶庫】開啟皇家寶箱！獲得 +2 XP ⭐`);
+        this.showFloatingText(iObj.x, iObj.y - 20, "+2 XP ⭐", '#60a5fa');
+      }
+    }
   }
 
   public resolveCombat(correct: boolean, isDefeated: boolean = true) {
@@ -1392,20 +2170,25 @@ export class DungeonScene extends Phaser.Scene {
               });
               this.bossTimerEvents = [];
               
-              // Elite grants 2x gold and 2.5x XP rewards!
-              const goldMultiplier = isElite ? 2 : 1;
+              // Elite grants 2x gold and 2.5x XP rewards! Frenzy floor grants 2x gold and 2x XP!
+              let goldMultiplier = isElite ? 2 : 1;
+              let xpMultiplier = 1;
+              if (this.mutationType === 'frenzy') {
+                goldMultiplier *= 2;
+                xpMultiplier *= 2;
+              }
 
               const lootGold = Math.floor((15 + Math.floor(Math.random() * 11)) * goldMultiplier);
-              const lootXP = isElite 
+              const lootXP = Math.floor((isElite 
                 ? (5 + Math.floor(Math.random() * 6)) // 5 to 10 XP
-                : (1 + Math.floor(Math.random() * 5)); // 1 to 5 XP
+                : (1 + Math.floor(Math.random() * 5))) * xpMultiplier); // 1 to 5 XP
               
               this.safeCall(GameBridge.onGoldGained, lootGold);
               this.safeCall(GameBridge.onXPGained, lootXP);
               RetroSFX.playCoin();
               this.safeCall(GameBridge.onLogUpdated, isElite 
                 ? `⚔️ 成功消滅精英怪！獲得巨額戰利品：${lootGold} 金幣與 ${lootXP} XP！🏆`
-                : `⚔️ 擊敗怪獸！奪取了 ${lootGold} 金幣與 ${lootXP} XP。`
+                : `⚔️ 擊敗怪獸！${this.mutationType === 'frenzy' ? '【狂暴獎勵】' : ''}奪取了 ${lootGold} 金幣與 ${lootXP} XP。`
               );
               
               this.showFloatingText(monsterX, monsterY - 35, `+${lootGold} 金幣 🟡`, '#facc15');
@@ -1438,10 +2221,11 @@ export class DungeonScene extends Phaser.Scene {
             });
           }
 
-          this.showFloatingText(this.player.x, this.player.y - 30, "哎呀！HP -1 ❤️", "#ef4444");
+          const damage = this.mutationType === 'frenzy' ? 2 : 1;
+          this.showFloatingText(this.player.x, this.player.y - 30, `哎呀！HP -${damage} ❤️`, "#ef4444");
           
-          this.safeCall(GameBridge.onHpLost, 1);
-          this.safeCall(GameBridge.onLogUpdated, `👾 答錯了！遭受怪獸反擊，損失了 1 點生命值。`);
+          this.safeCall(GameBridge.onHpLost, damage);
+          this.safeCall(GameBridge.onLogUpdated, `👾 答錯了！${this.mutationType === 'frenzy' ? '【狂暴魔域】怪獸暴怒重創！' : '遭受怪獸反擊，'}損失了 ${damage} 點生命值。`);
 
           this.bounceAwayFromMonster(monsterSprite);
         }

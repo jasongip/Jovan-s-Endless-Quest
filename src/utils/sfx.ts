@@ -29,9 +29,14 @@ class RetroSFX {
     return this.enabled;
   }
 
-  public static startMusic() {
+  public static startMusic(isBoss = false) {
     if (!this.enabled) return;
     this.stopMusic();
+
+    if (isBoss) {
+      this.startBossMusic();
+      return;
+    }
 
     const ctx = this.getContext();
     if (!ctx) return;
@@ -69,6 +74,58 @@ class RetroSFX {
       
       this.musicStep++;
     }, 450); // 133 BPM rhythmic walk
+  }
+
+  public static startBossMusic() {
+    if (!this.enabled) return;
+    this.stopMusic();
+
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    // Fast, urgent, evil retro boss melody (Diminished / minor arpeggio)
+    const bossMelody = [
+      130.81, 155.56, 185.00, 220.00, // C3, Eb3, Gb3, A3
+      261.63, 311.13, 369.99, 440.00, // C4, Eb4, Gb4, A4
+      246.94, 293.66, 349.23, 415.30, // B3, D4, F4, G#4
+      220.00, 185.00, 155.56, 130.81  // A3, Gb3, Eb3, C3
+    ];
+
+    this.musicTimer = setInterval(() => {
+      const activeCtx = this.getContext();
+      if (!activeCtx || activeCtx.state === 'suspended') return;
+      
+      const now = activeCtx.currentTime;
+      const osc = activeCtx.createOscillator();
+      const bassOsc = activeCtx.createOscillator();
+      const gain = activeCtx.createGain();
+      const bassGain = activeCtx.createGain();
+      
+      osc.connect(gain);
+      gain.connect(activeCtx.destination);
+      bassOsc.connect(bassGain);
+      bassGain.connect(activeCtx.destination);
+      
+      osc.type = 'sawtooth'; // Aggressive retro tone
+      bassOsc.type = 'square';
+      
+      const freq = bossMelody[this.musicStep % bossMelody.length];
+      osc.frequency.setValueAtTime(freq, now);
+      bassOsc.frequency.setValueAtTime(freq / 2, now);
+      
+      gain.gain.setValueAtTime(0.018, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      bassGain.gain.setValueAtTime(0.02, now);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      
+      osc.start(now);
+      osc.stop(now + 0.20);
+      bassOsc.start(now);
+      bassOsc.stop(now + 0.20);
+      
+      this.musicStep++;
+    }, 210); // Urgent 285 BPM tempo!
   }
 
   public static stopMusic() {

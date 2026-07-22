@@ -170,14 +170,15 @@ export default function App() {
 
   useEffect(() => {
     if (isPlaying && soundEnabled) {
-      RetroSFX.startMusic();
+      const isBossFloor = gameState.currentFloor > 0 && gameState.currentFloor % 10 === 0;
+      RetroSFX.startMusic(isBossFloor);
     } else {
       RetroSFX.stopMusic();
     }
     return () => {
       RetroSFX.stopMusic();
     };
-  }, [isPlaying, soundEnabled]);
+  }, [isPlaying, soundEnabled, gameState.currentFloor]);
 
   // Pre-load / warm up SpeechSynthesis voices on mount for iOS/iPad Safari compatibility
   useEffect(() => {
@@ -200,6 +201,8 @@ export default function App() {
   
   // Track already used question IDs during the current spire run to prevent repetition
   const usedQuestionIdsRef = useRef<string[]>([]);
+  // Track last 10 portal move directions for hidden chest vault activation
+  const portalMoveHistoryRef = useRef<string[]>([]);
 
   // Custom interactive quiz states
   const [spellingInput, setSpellingInput] = useState("");
@@ -245,7 +248,8 @@ export default function App() {
   const [devOverrides, setDevOverrides] = useState({
     petMode: 'default',
     eliteMode: 'default',
-    chestMode: 'default'
+    chestMode: 'default',
+    mutationMode: 'default'
   });
 
   const playTTS = (text: string, lang: string) => {
@@ -253,7 +257,7 @@ export default function App() {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         
-        let processedText = text;
+        let processedText = text.replace(/【.*?】\s*/g, "").trim();
         const isEnglish = lang.toLowerCase().startsWith('en');
         const isChinese = lang.toLowerCase().startsWith('zh');
 
@@ -814,21 +818,71 @@ export default function App() {
       setGameState(prev => ({ ...prev, hp: Math.max(0, prev.hp - amount) }));
     };
 
-    GameBridge.onPortalReached = () => {
+    GameBridge.onHpHealed = (amount) => {
+      setGameState(prev => {
+        const isDwarf = prev.selectedJobId === 'dwarf';
+        const effMax = (prev.maxHp || 5) + (isDwarf ? 2 : 0);
+        return {
+          ...prev,
+          hp: Math.min(effMax, prev.hp + amount)
+        };
+      });
+    };
+
+    GameBridge.onPortalReached = (portalDir?: string) => {
       setIsThunderbirdShieldActive(false);
       setIsFairyRevealActive(false);
       setIsLavaLionDoubleDamageActive(false);
+
+      const isFalling = portalDir === 'DOWN';
+
+      let isVaultTriggered = false;
+      if (portalDir && !isFalling) {
+        portalMoveHistoryRef.current.push(portalDir);
+        if (portalMoveHistoryRef.current.length > 5) {
+          portalMoveHistoryRef.current.shift();
+        }
+        if (portalMoveHistoryRef.current.length === 5) {
+          let isAlternating = true;
+          for (let i = 1; i < 5; i++) {
+            if (portalMoveHistoryRef.current[i] === portalMoveHistoryRef.current[i - 1]) {
+              isAlternating = false;
+              break;
+            }
+          }
+          if (isAlternating) {
+            isVaultTriggered = true;
+            portalMoveHistoryRef.current = [];
+          }
+        }
+      }
+
       setGameState(prev => {
-        const nextFloor = prev.currentFloor + 1;
+        const nextFloor = isFalling 
+          ? Math.max(1, prev.currentFloor - 1) 
+          : prev.currentFloor + 1;
+        const newMaxFloor = Math.max(prev.maxFloorReached, nextFloor);
         
+        const isFirstVaultVisit = !prev.hasVisitedTreasureVaultThisRun;
+        const actualVaultTriggered = !isFalling && isVaultTriggered && isFirstVaultVisit;
+
         // Push floor log outside the state updater synchronously using setTimeout
         setTimeout(() => {
-          pushLog(`🎉 恭喜通過第 ${prev.currentFloor} 層！成功爬上第 ${nextFloor} 層之塔！⚔️`);
+          if (isFalling) {
+            pushLog(`🕳️【地圖破洞】不幸踩空跌落破洞！摔落回到了第 ${nextFloor} 層！小心翼翼再接再厲！`);
+          } else if (actualVaultTriggered) {
+            pushLog(`✨【奇蹟再臨】連續 5 次選擇不同方向傳送門！觸發隱藏傳送陣！進入了「全寶箱隱藏關卡」（本局限定一次）！💎💰`);
+          } else {
+            pushLog(`🎉 恭喜通過第 ${prev.currentFloor} 層！成功爬上第 ${nextFloor} 層之塔！⚔️`);
+          }
         }, 0);
         
         return {
           ...prev,
           currentFloor: nextFloor,
+          maxFloorReached: newMaxFloor,
+          isTreasureVault: actualVaultTriggered,
+          hasVisitedTreasureVaultThisRun: prev.hasVisitedTreasureVaultThisRun || actualVaultTriggered,
           currentFloorState: null
         };
       });
@@ -898,6 +952,7 @@ export default function App() {
       GameBridge.onXPGained = null;
       GameBridge.onPortalReached = null;
       GameBridge.onHpLost = null;
+      GameBridge.onHpHealed = null;
       GameBridge.onLogUpdated = null;
       GameBridge.onFloorStateCreated = null;
       GameBridge.onEntityInteracted = null;
@@ -1510,12 +1565,15 @@ export default function App() {
       return { 
         ...prev, 
         currentFloor: 1, 
+        startRunMaxFloor: prev.maxFloorReached || 1,
         hp: isDwarf ? 7 : 5,
         maxHp: 5,
         goldCoins: 0,
         limitBreakBar: 0,
         dFactorSlope: 0.2,
-        currentFloorState: null
+        currentFloorState: null,
+        hasVisitedTreasureVaultThisRun: false,
+        isTreasureVault: false
       };
     });
     pushLog(`💀 戰敗力竭！勇士 Jovan 的體力歸零，被魔法水晶傳送回「第 1 層」重頭開始！金幣與本局狀態已重置，但冒險生涯累積的 ${gameState.totalXP} XP 職業進度永久保留！🌟`);
@@ -1555,7 +1613,9 @@ export default function App() {
         return {
           ...prev,
           hp: effMax,
-          currentFloorState: null
+          currentFloorState: null,
+          hasVisitedTreasureVaultThisRun: false,
+          isTreasureVault: false
         };
       });
 
@@ -1806,8 +1866,8 @@ export default function App() {
 
                   {/* Version & Last Update info row */}
                   <div className="mt-2 pt-2 border-t border-indigo-950/80 flex flex-row items-center justify-between text-[10px] text-indigo-400/80 font-mono tracking-wider">
-                    <span>版本: v2.6.0-RELEASE</span>
-                    <span>更新: 2026-07-20 12:00</span>
+                    <span>版本: v2.9.0-RELEASE</span>
+                    <span>更新: 2026-07-22 17:25</span>
                   </div>
                 </div>
 
@@ -2171,8 +2231,22 @@ export default function App() {
                       selectedJobId={gameState.selectedJobId || 'warrior'}
                       devOverrides={isDevModeUnlocked ? devOverrides : undefined}
                       currentFloorState={gameState.currentFloorState}
+                      isTreasureFloor={gameState.isTreasureVault}
+                      maxFloorReached={gameState.startRunMaxFloor ?? gameState.maxFloorReached ?? 1}
                     />
                     
+                    {/* Floating Limit Break Trigger directly on top of game canvas for iPad & mobile accessibility */}
+                    {gameState.limitBreakBar >= 10 && (
+                      <button
+                        id="floating-limit-break-btn"
+                        onClick={handleLimitBreak}
+                        className="absolute top-4 left-4 z-50 px-3.5 py-2 bg-gradient-to-r from-amber-500 via-yellow-400 to-red-500 text-slate-950 font-black rounded-xl text-xs sm:text-sm tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.9)] animate-bounce border-2 border-yellow-200 cursor-pointer flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                      >
+                        <Sparkles size={16} className="animate-spin text-slate-950" />
+                        <span>💥 發動極限超必殺技 ⚔️</span>
+                      </button>
+                    )}
+
                     {/* Floating Expand Book Button in top-right corner when collapsed */}
                     {!isLogExpanded && (
                       <button
@@ -4079,6 +4153,51 @@ export default function App() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Mutation Toggle */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs font-sans">
+                        <span className="font-semibold text-slate-300">🌀 關卡環境異變 (Environmental Mutation)：</span>
+                        <span className="font-bold font-mono text-cyan-400">
+                          {devOverrides.mutationMode === 'default' ? '預設 (動態幾率，第5層50%+1%/層)' :
+                           devOverrides.mutationMode === 'fog' ? '🌫️ 強制濃霧' :
+                           devOverrides.mutationMode === 'hazard_fire' ? '🔥 烈焰陷阱' :
+                           devOverrides.mutationMode === 'hazard_ice' ? '❄️ 霜凍陷阱' :
+                           devOverrides.mutationMode === 'hazard_poison' ? '☠️ 劇毒陷阱' :
+                           devOverrides.mutationMode === 'hazard' ? '🌋 隨機陷阱' :
+                           devOverrides.mutationMode === 'frenzy' ? '⚡ 強制狂暴' :
+                           devOverrides.mutationMode === 'pitfall' ? '🕳️ 強制破洞' :
+                           devOverrides.mutationMode === 'nest' ? '👾 強制巢穴' :
+                           devOverrides.mutationMode === 'treasure' ? '💰 寶箱關卡' : '🚫 無異變'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1">
+                        {[
+                          { id: 'default', label: '預設' },
+                          { id: 'fog', label: '🌫️ 濃霧' },
+                          { id: 'hazard_fire', label: '🔥 烈焰' },
+                          { id: 'hazard_ice', label: '❄️ 霜凍' },
+                          { id: 'hazard_poison', label: '☠️ 劇毒' },
+                          { id: 'pitfall', label: '🕳️ 破洞' },
+                          { id: 'frenzy', label: '⚡ 狂暴' },
+                          { id: 'nest', label: '👾 巢穴' },
+                          { id: 'treasure', label: '💰 寶箱關' },
+                          { id: 'none', label: '🚫 無' }
+                        ].map(item => (
+                          <button
+                            key={item.id}
+                            onClick={() => setDevOverrides(prev => ({ ...prev, mutationMode: item.id }))}
+                            className={`py-1 text-[9px] font-bold rounded transition cursor-pointer ${
+                              devOverrides.mutationMode === item.id
+                                ? 'bg-cyan-600 text-white border border-cyan-400'
+                                : 'bg-slate-800 hover:bg-slate-750 text-slate-400 border border-transparent'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Limit Break Controls */}
@@ -4225,7 +4344,7 @@ export default function App() {
                        </button>
                        <button
                          onClick={() => {
-                           setGameState(prev => ({ ...prev, currentFloor: 1, maxFloorReached: 1 }));
+                           setGameState(prev => ({ ...prev, currentFloor: 1, maxFloorReached: 1, startRunMaxFloor: 1, hasVisitedTreasureVaultThisRun: false, isTreasureVault: false }));
                            pushLog("🛠️ [開發者] 目前樓層及最高挑戰樓層已重置為第 1 層 🏰");
                          }}
                          className="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/50 text-rose-300 text-[9px] font-bold rounded cursor-pointer flex-1 text-center transition"

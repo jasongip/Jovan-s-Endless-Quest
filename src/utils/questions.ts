@@ -1165,7 +1165,7 @@ export function generateQuestion(
         options: template?.options || [],
         correctAnswer: template?.correctAnswer || "",
         explanation: template?.explanation || "",
-        speechText: qText.replace(/___+/g, "甚麼"),
+        speechText: qText.replace(/【.*?】\s*/g, "").replace(/___+/g, "甚麼").trim(),
         speechLang: "zh-HK"
       };
     } else if (subtype === 'missing_stroke') {
@@ -1434,7 +1434,7 @@ export function generateQuestion(
   fillPatterns.forEach(p => {
     if (CHINESE_FILL_TEMPLATES.length < 110) {
       CHINESE_FILL_TEMPLATES.push({
-        question: `【Chinese Fill】請選出最適合填入句中空格的詞語：\n\n「${p.template}」`,
+        question: `請選出最適合填入句中空格的詞語：\n\n「${p.template}」`,
         options: p.options.sort(() => Math.random() - 0.5),
         correctAnswer: p.key,
         explanation: p.explanation
@@ -1501,7 +1501,7 @@ export function generateQuestion(
       const alreadyExists = CHINESE_FILL_TEMPLATES.some(t => t.correctAnswer === wordObj.word);
       if (!alreadyExists) {
         CHINESE_FILL_TEMPLATES.push({
-          question: `【Chinese Fill】請選出最適合填入空格的漢語詞彙：\n\n「${sentenceDef.sentence}」`,
+          question: `請選出最適合填入空格的漢語詞彙：\n\n「${sentenceDef.sentence}」`,
           options: [wordObj.word, ...sentenceDef.distractors].sort(() => Math.random() - 0.5),
           correctAnswer: wordObj.word,
           explanation: sentenceDef.explanation
@@ -1512,7 +1512,7 @@ export function generateQuestion(
       const alreadyExists = CHINESE_FILL_TEMPLATES.some(t => t.correctAnswer === wordObj.word);
       if (!alreadyExists) {
         CHINESE_FILL_TEMPLATES.push({
-          question: `【Chinese Fill】請選出與英文「${wordObj.en}」意思最對應的漢字詞彙：\n\n「___」`,
+          question: `請選出與英文「${wordObj.en}」意思最對應的漢字詞彙：\n\n「___」`,
           options: [wordObj.word, "泥土", "大霧", "石頭"].sort(() => Math.random() - 0.5),
           correctAnswer: wordObj.word,
           explanation: `「${wordObj.word}」對應的英文是「${wordObj.en}」。`

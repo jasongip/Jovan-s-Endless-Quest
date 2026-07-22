@@ -18,16 +18,18 @@ export interface GameState {
   totalXP: number; // Current total XP
   dFactorSlope?: number; // Dynamic difficulty scaling factor slope
   maxFloorReached?: number; // Highest floor reached
+  startRunMaxFloor?: number; // Target record floor for current run
   limitBreakBar?: number; // 0 to 10
   equippedPetId?: string | null;
   capturedPetIds?: string[];
   selectedJobId?: string; // Selected Job/Class ID
   currentFloorState?: FloorState | null;
+  hasVisitedTreasureVaultThisRun?: boolean;
 }
 
 export interface FloorEntityState {
   id: string;
-  type: 'monster' | 'boss' | 'chest' | 'bag' | 'rock' | 'skeleton' | 'merchant' | 'elf' | 'campfire' | 'pet';
+  type: 'monster' | 'boss' | 'chest' | 'bag' | 'rock' | 'skeleton' | 'merchant' | 'elf' | 'campfire' | 'pet' | 'statue' | 'hazard' | 'pitfall';
   gridX: number;
   gridY: number;
   isInteracted?: boolean;
@@ -47,6 +49,8 @@ export interface FloorState {
   playerGridY: number;
   portalActive: boolean;
   entities: FloorEntityState[];
+  mutationType?: 'none' | 'fog' | 'hazard' | 'frenzy' | 'pitfall' | 'nest';
+  isTreasureVault?: boolean;
 }
 
 export interface QuizQuestion {
