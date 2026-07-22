@@ -1866,8 +1866,8 @@ export default function App() {
 
                   {/* Version & Last Update info row */}
                   <div className="mt-2 pt-2 border-t border-indigo-950/80 flex flex-row items-center justify-between text-[10px] text-indigo-400/80 font-mono tracking-wider">
-                    <span>版本: v2.9.0-RELEASE</span>
-                    <span>更新: 2026-07-22 17:25</span>
+                    <span>版本: v3.0.0-RELEASE</span>
+                    <span>更新: 2026-07-22 17:30</span>
                   </div>
                 </div>
 

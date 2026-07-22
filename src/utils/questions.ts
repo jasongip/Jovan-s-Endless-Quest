@@ -107,7 +107,7 @@ const CHINESE_FILL_TEMPLATES = [
   { question: "請你幫忙把書桌整理乾___。", options: ["淨", "靜", "睜", "爭"], correctAnswer: "淨", explanation: "「乾淨」代表清潔整齊。" },
   { question: "弟弟一邊唱歌，一邊大___大跳。", options: ["蹦", "蓬", "崩", "本"], correctAnswer: "蹦", explanation: "「蹦蹦跳跳」形容活潑歡樂。" },
   { question: "天黑了，美麗的月亮出來___了。", options: ["照", "招", "召", "朝"], correctAnswer: "照", explanation: "月光「照射」大地。" },
-  { question: "上課時，我們要專心聽老師___故事。", options: ["講", "講", "講", "講"], correctAnswer: "講", explanation: "「講故事」即說故事。" },
+  { question: "上課時，我們要專心聽老師___故事。", options: ["講", "將", "獎", "醬"], correctAnswer: "講", explanation: "「講故事」即說故事。" },
   { question: "我有一個相親相___的溫馨家庭。", options: ["愛", "哀", "矮", "艾"], correctAnswer: "愛", explanation: "「相親相愛」形容家庭和睦。" },
   { question: "放學後，我們在操場上踢足___。", options: ["球", "求", "秋", "救"], correctAnswer: "球", explanation: "「足球」是體育活動。" },
   { question: "魚兒在清澈的池塘裏自由自由地___水。", options: ["游", "油", "尤", "優"], correctAnswer: "游", explanation: "魚在水中「游泳」。" },
@@ -115,7 +115,7 @@ const CHINESE_FILL_TEMPLATES = [
   { question: "小貓咪蜷縮在沙發上安靜地睡___。", options: ["覺", "角", "腳", "攪"], correctAnswer: "覺", explanation: "「睡覺」代表休息。" },
   { question: "我們應該多吃新鮮的___菜和水果。", options: ["蔬", "疏", "書", "梳"], correctAnswer: "蔬", explanation: "「蔬菜」有益健康。" },
   { question: "上體育課時，同學們要排___整齊的隊伍。", options: ["出", "處", "除", "初"], correctAnswer: "出", explanation: "「排出」隊伍。" },
-  { question: "小草從泥土裏探出頭來，綠___的十分可愛。", options: ["油油", "油油", "油油", "油油"], correctAnswer: "油油", explanation: "「綠油油」形容草木茂盛翠綠。" },
+  { question: "小草從泥土裏探出頭來，綠___的十分可愛。", options: ["油油", "幽幽", "悠悠", "優優"], correctAnswer: "油油", explanation: "「綠油油」形容草木茂盛翠綠。" },
   { question: "過馬路時，我們要牽著大人的___才安全。", options: ["手", "毛", "首", "受"], correctAnswer: "手", explanation: "「牽手」走過馬路。" },
   { question: "大熊貓最喜歡吃鮮嫩的竹___。", options: ["葉", "夜", "野", "爺"], correctAnswer: "葉", explanation: "「竹葉」是熊貓的食物。" },
   { question: "秋天到了，樹上的黃葉紛紛___落。", options: ["飄", "漂", "票", "標"], correctAnswer: "飄", explanation: "「飄落」形容落葉在風中落下的樣子。" },
@@ -706,28 +706,133 @@ const ALL_QUESTION_DEFS: QuestionDef[] = [
   { level: 5, type: 'math', subtype: 'math_8_11_multiplication' }
 ];
 
-// Refined stroke count generator
+export const SINGLE_CHAR_STROKES_DB = [
+  { char: "學", strokes: 16 },
+  { char: "習", strokes: 11 },
+  { char: "一", strokes: 1 },
+  { char: "二", strokes: 2 },
+  { char: "三", strokes: 3 },
+  { char: "四", strokes: 5 },
+  { char: "五", strokes: 4 },
+  { char: "六", strokes: 4 },
+  { char: "七", strokes: 2 },
+  { char: "八", strokes: 2 },
+  { char: "九", strokes: 2 },
+  { char: "十", strokes: 2 },
+  { char: "百", strokes: 6 },
+  { char: "千", strokes: 3 },
+  { char: "日", strokes: 4 },
+  { char: "月", strokes: 4 },
+  { char: "水", strokes: 4 },
+  { char: "火", strokes: 4 },
+  { char: "木", strokes: 4 },
+  { char: "土", strokes: 3 },
+  { char: "金", strokes: 8 },
+  { char: "山", strokes: 3 },
+  { char: "石", strokes: 5 },
+  { char: "田", strokes: 5 },
+  { char: "人", strokes: 2 },
+  { char: "口", strokes: 3 },
+  { char: "手", strokes: 4 },
+  { char: "心", strokes: 4 },
+  { char: "目", strokes: 5 },
+  { char: "耳", strokes: 6 },
+  { char: "足", strokes: 7 },
+  { char: "大", strokes: 3 },
+  { char: "小", strokes: 3 },
+  { char: "多", strokes: 6 },
+  { char: "少", strokes: 4 },
+  { char: "天", strokes: 4 },
+  { char: "地", strokes: 6 },
+  { char: "風", strokes: 9 },
+  { char: "雨", strokes: 8 },
+  { char: "雪", strokes: 11 },
+  { char: "電", strokes: 13 },
+  { char: "雲", strokes: 12 },
+  { char: "春", strokes: 9 },
+  { char: "夏", strokes: 10 },
+  { char: "秋", strokes: 9 },
+  { char: "冬", strokes: 5 },
+  { char: "花", strokes: 7 },
+  { char: "草", strokes: 9 },
+  { char: "樹", strokes: 16 },
+  { char: "鳥", strokes: 11 },
+  { char: "魚", strokes: 11 },
+  { char: "貓", strokes: 11 },
+  { char: "狗", strokes: 8 },
+  { char: "馬", strokes: 10 },
+  { char: "牛", strokes: 4 },
+  { char: "羊", strokes: 6 },
+  { char: "兔", strokes: 8 },
+  { char: "象", strokes: 12 },
+  { char: "車", strokes: 7 },
+  { char: "船", strokes: 11 },
+  { char: "飛", strokes: 9 },
+  { char: "書", strokes: 10 },
+  { char: "筆", strokes: 12 },
+  { char: "紙", strokes: 10 },
+  { char: "畫", strokes: 12 },
+  { char: "校", strokes: 10 },
+  { char: "家", strokes: 10 },
+  { char: "爸", strokes: 8 },
+  { char: "媽", strokes: 13 },
+  { char: "哥", strokes: 10 },
+  { char: "姐", strokes: 8 },
+  { char: "弟", strokes: 7 },
+  { char: "妹", strokes: 8 },
+  { char: "爺", strokes: 13 },
+  { char: "婆", strokes: 11 },
+  { char: "醫", strokes: 18 },
+  { char: "生", strokes: 5 },
+  { char: "師", strokes: 10 },
+  { char: "愛", strokes: 13 },
+  { char: "星", strokes: 9 },
+  { char: "晴", strokes: 12 },
+  { char: "紅", strokes: 9 },
+  { char: "綠", strokes: 14 },
+  { char: "黃", strokes: 12 },
+  { char: "白", strokes: 5 },
+  { char: "黑", strokes: 12 },
+  { char: "歌", strokes: 14 },
+  { char: "唱", strokes: 11 },
+  { char: "跳", strokes: 13 },
+  { char: "跑", strokes: 12 },
+  { char: "聽", strokes: 22 },
+  { char: "說", strokes: 14 },
+  { char: "讀", strokes: 22 },
+  { char: "寫", strokes: 15 }
+];
+
+// Refined single character stroke count generator
 export function generateStrokeCountQuestion(usedIds: string[] = []): QuizQuestion {
-  let wordObj = CHINESE_WORDS_DB[Math.floor(Math.random() * CHINESE_WORDS_DB.length)];
+  let item = SINGLE_CHAR_STROKES_DB[Math.floor(Math.random() * SINGLE_CHAR_STROKES_DB.length)];
   let attempts = 0;
-  while (usedIds.includes(`zh_strokes_${wordObj.word}`) && attempts < 20) {
-    wordObj = CHINESE_WORDS_DB[Math.floor(Math.random() * CHINESE_WORDS_DB.length)];
+  while (usedIds.includes(`zh_strokes_${item.char}`) && attempts < 20) {
+    item = SINGLE_CHAR_STROKES_DB[Math.floor(Math.random() * SINGLE_CHAR_STROKES_DB.length)];
     attempts++;
   }
   
-  const totalStrokes = wordObj.strokes;
-  const question = `【學科挑戰 - 中文科】\n請問「${wordObj.word}」這兩個漢字合起來一共有多少個筆劃？`;
-  const correctAnswer = totalStrokes.toString();
-  const options = generateFourOptions(totalStrokes);
+  const strokes = item.strokes;
+  const question = `請選出漢字「${item.char}」正確的筆劃數：`;
+  const correctAnswer = `${strokes} 劃`;
+  
+  const distractors = [strokes + 1, strokes - 1, strokes + 2, strokes - 2, strokes + 3]
+    .filter(s => s > 0 && s !== strokes);
+  const uniqueDistractors = Array.from(new Set(distractors)).slice(0, 3);
+  while (uniqueDistractors.length < 3) {
+    uniqueDistractors.push(strokes + uniqueDistractors.length + 4);
+  }
+  
+  const options = [correctAnswer, ...uniqueDistractors.map(d => `${d} 劃`)].sort(() => Math.random() - 0.5);
   
   return {
-    id: `zh_strokes_${wordObj.word}`,
+    id: `zh_strokes_${item.char}`,
     type: 'chinese',
     subtype: 'stroke_count',
     question,
     options,
     correctAnswer,
-    explanation: `筆劃解析：「${wordObj.word}」合共有 ${totalStrokes} 個筆劃喔！平日多練習寫字能幫助記憶筆順。`
+    explanation: `筆劃解析：「${item.char}」字一共有 ${strokes} 個筆劃，請跟著老師一筆一劃仔細數數看喔！`
   };
 }
 
@@ -1547,29 +1652,27 @@ export function generateQuestion(
   }
 
   // 4. Expand CHINESE_STROKE_TEMPLATES dynamically (to 105+)
-  let wordIdx = 0;
-  while (CHINESE_STROKE_TEMPLATES.length < 105 && wordIdx < CHINESE_WORDS_DB.length) {
-    const wordObj = CHINESE_WORDS_DB[wordIdx];
-    wordIdx++;
-    const char = wordObj.word[0];
-    const strokes = wordObj.strokes;
-    const exists = CHINESE_STROKE_TEMPLATES.some(t => t.question.includes(`「${wordObj.word}」`));
+  SINGLE_CHAR_STROKES_DB.forEach(charObj => {
+    const char = charObj.char;
+    const strokes = charObj.strokes;
+    const exists = CHINESE_STROKE_TEMPLATES.some(t => t.question.includes(`「${char}」`));
     if (!exists && strokes > 0) {
-      const distractors = [strokes + 2, strokes - 2, strokes + 4, strokes - 1]
+      const distractors = [strokes + 1, strokes - 1, strokes + 2, strokes - 2, strokes + 3]
         .filter(s => s > 0 && s !== strokes);
       const uniqueDistractors = Array.from(new Set(distractors)).slice(0, 3);
       while (uniqueDistractors.length < 3) {
-        uniqueDistractors.push(strokes + uniqueDistractors.length + 3);
+        uniqueDistractors.push(strokes + uniqueDistractors.length + 4);
       }
       
+      const correctAnswer = `${strokes} 劃`;
       CHINESE_STROKE_TEMPLATES.push({
-        question: `【漢字修復】「${wordObj.word}」的第一個字「${char}」一共有多少個筆劃？`,
-        options: [strokes.toString() + " 劃", ...uniqueDistractors.map(d => d.toString() + " 劃")].sort(() => Math.random() - 0.5),
-        correctAnswer: strokes.toString() + " 劃",
+        question: `請選出漢字「${char}」正確的筆劃數：`,
+        options: [correctAnswer, ...uniqueDistractors.map(d => `${d} 劃`)].sort(() => Math.random() - 0.5),
+        correctAnswer,
         explanation: `「${char}」字一共有 ${strokes} 個筆劃，請跟著老師一筆一劃仔細數數看喔！`
       });
     }
-  }
+  });
 
   // 5. Expand ENGLISH_PHONICS_DB with 50 fresh words (bringing total to 100)
   const extraPhonicsList = [
